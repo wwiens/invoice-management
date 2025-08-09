@@ -214,10 +214,10 @@ export function InvoiceManagement({
   return (
     <div className="flex-1 flex flex-col">
       {/* Header */}
-      <div className="border-b border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-4">
+      <div className="border-b border-gray-200 p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">Invoices</h1>
+            <h1 className="text-xl md:text-2xl font-semibold">Invoices</h1>
             {overdueCount > 0 && (
               <div className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
                 <AlertCircle className="h-3 w-3" />
@@ -225,10 +225,11 @@ export function InvoiceManagement({
               </div>
             )}
           </div>
-          <div className="flex space-x-3">
-            <Button onClick={() => setShowNewInvoiceForm(true)}>
+          <div className="flex space-x-3 w-full sm:w-auto">
+            <Button onClick={() => setShowNewInvoiceForm(true)} className="flex-1 sm:flex-none">
               <Plus className="mr-2 h-4 w-4" />
-              New Invoice
+              <span className="hidden sm:inline">New Invoice</span>
+              <span className="sm:hidden">New</span>
             </Button>
           </div>
         </div>
@@ -245,19 +246,22 @@ export function InvoiceManagement({
         </div>
 
         {/* Status Tabs */}
-        <div className="flex space-x-1">
+        <div className="flex flex-wrap gap-1 overflow-x-auto">
           {statusTabs.map((tab) => (
             <button
               key={tab.value}
               onClick={() => handleFilterChange({ status: tab.value })}
               className={cn(
-                "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                "px-3 md:px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap",
                 filters.status === tab.value
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
               )}
             >
-              {tab.label}
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">
+                {tab.label.replace(' Invoices', '').replace('Invoices', 'All')}
+              </span>
               {tab.count !== undefined && (
                 <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
                   {tab.count}
@@ -271,10 +275,14 @@ export function InvoiceManagement({
       {/* Content with Tabs */}
       <div className="flex-1 flex">
         <Tabs defaultValue="invoices" className="w-full h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 mt-4 mb-4">
-            <TabsTrigger value="invoices">Invoice List</TabsTrigger>
-            <TabsTrigger value="reminders" className="flex items-center gap-2">
-              Payment Reminders
+          <TabsList className="grid w-full grid-cols-2 mx-4 md:mx-6 mt-4 mb-4">
+            <TabsTrigger value="invoices" className="text-sm">
+              <span className="hidden sm:inline">Invoice List</span>
+              <span className="sm:hidden">Invoices</span>
+            </TabsTrigger>
+            <TabsTrigger value="reminders" className="flex items-center gap-2 text-sm">
+              <span className="hidden sm:inline">Payment Reminders</span>
+              <span className="sm:hidden">Reminders</span>
               {overdueCount > 0 && (
                 <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] h-5 flex items-center justify-center">
                   {overdueCount}
@@ -283,8 +291,9 @@ export function InvoiceManagement({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="invoices" className="flex-1 flex">
-            <div className="w-1/2 border-r border-gray-200">
+          <TabsContent value="invoices" className="flex-1 flex flex-col lg:flex-row">
+            {/* Mobile: Only show invoice list with inline details */}
+            <div className="w-full lg:w-1/2 lg:border-r border-gray-200 flex-shrink-0 lg:block">
               <InvoiceList
                 invoices={invoices}
                 selectedInvoice={selectedInvoice}
@@ -292,17 +301,23 @@ export function InvoiceManagement({
                 onPaymentStatusChange={handlePaymentStatusChangeLocal}
                 onMarkPaid={handleMarkPaid}
                 filters={filters}
+                onEditInvoice={handleEditInvoice}
+                onDeleteInvoice={handleDeleteInvoice}
+                showInlineDetails={true}
               />
             </div>
-            <InvoiceDetail
-              invoice={selectedInvoice}
-              onEditInvoice={handleEditInvoice}
-              onMarkPaid={handleMarkPaid}
-              onDeleteInvoice={handleDeleteInvoice}
-            />
+            {/* Desktop: Show separate detail panel */}
+            <div className="hidden lg:block w-1/2 border-t lg:border-t-0 lg:border-l border-gray-200">
+              <InvoiceDetail
+                invoice={selectedInvoice}
+                onEditInvoice={handleEditInvoice}
+                onMarkPaid={handleMarkPaid}
+                onDeleteInvoice={handleDeleteInvoice}
+              />
+            </div>
           </TabsContent>
 
-          <TabsContent value="reminders" className="p-6">
+          <TabsContent value="reminders" className="p-4 md:p-6">
             <PaymentReminders
               invoices={invoices}
               onPaymentStatusChange={handlePaymentStatusChangeLocal}

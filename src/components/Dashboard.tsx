@@ -90,20 +90,20 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
   };
 
   return (
-    <div className="flex-1 space-y-6 p-6">
+    <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6">
       {/* Header */}
       <div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground text-sm md:text-base">
               Overview of your invoice management and revenue analytics
             </p>
           </div>
           {overdueCount > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg">
               <AlertCircle className="h-4 w-4" />
-              <span className="font-medium">
+              <span className="font-medium text-sm">
                 {overdueCount} overdue payments
               </span>
             </div>
@@ -122,14 +122,14 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
         )}
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl md:text-2xl font-bold">
               {formatCurrency(metrics.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -146,7 +146,7 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl md:text-2xl font-bold">
               {formatCurrency(metrics.monthlyRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -171,7 +171,7 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalInvoices}</div>
+            <div className="text-xl md:text-2xl font-bold">{metrics.totalInvoices}</div>
             <p className="text-xs text-muted-foreground">
               {metrics.paidInvoices} paid (
               {((metrics.paidInvoices / metrics.totalInvoices) * 100).toFixed(
@@ -190,7 +190,7 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl md:text-2xl font-bold">
               {formatCurrency(metrics.pendingAmount)}
             </div>
             <p className="text-xs text-red-600">
@@ -201,9 +201,9 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
       </div>
 
       {/* Charts Section */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 lg:grid-cols-7">
         {/* Monthly Revenue Chart */}
-        <Card className="col-span-4">
+        <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle>Revenue Trend</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -211,7 +211,7 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
             </p>
           </CardHeader>
           <CardContent className="pl-2">
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height={300} className="md:h-[350px]">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -240,7 +240,7 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
         </Card>
 
         {/* Invoice Status Distribution */}
-        <Card className="col-span-3">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Invoice Status</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -248,16 +248,17 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
             </p>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height={300} className="md:h-[350px]">
               <PieChart>
                 <Pie
                   data={statusData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={120}
+                  innerRadius={40}
+                  outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
+                  className="md:outerRadius-120 md:innerRadius-60"
                 >
                   {statusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -284,9 +285,9 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
       </div>
 
       {/* Bottom Section */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div className="grid gap-4 lg:grid-cols-7">
         {/* Top Clients */}
-        <Card className="col-span-3">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -309,14 +310,14 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
                         {index + 1}
                       </span>
                     </div>
-                    <div>
-                      <p className="font-medium">{client.name}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{client.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {client.invoices} invoices
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex-shrink-0">
                     <p className="font-medium">
                       {formatCurrency(client.revenue)}
                     </p>
@@ -328,7 +329,7 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
         </Card>
 
         {/* Recent Activity */}
-        <Card className="col-span-4">
+        <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-4 w-4" />
@@ -346,11 +347,11 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
                   className={`flex items-center gap-3 p-3 rounded-lg border ${getActivityColor(activity.type)}`}
                 >
                   {getActivityIcon(activity.type)}
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">
                       {activity.description}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-xs text-muted-foreground">
                         {activity.date}
                       </span>
@@ -362,7 +363,7 @@ export function Dashboard({ invoices, onPaymentStatusChange }: DashboardProps) {
                     </div>
                   </div>
                   {activity.amount && (
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0">
                       <p className="text-sm font-medium">
                         {formatCurrency(activity.amount)}
                       </p>

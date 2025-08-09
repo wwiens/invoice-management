@@ -59,7 +59,7 @@ export function InvoiceDetail({
 
   if (!invoice) {
     return (
-      <div className="w-1/2 bg-gray-50 flex items-center justify-center">
+      <div className="w-full bg-gray-50 flex items-center justify-center min-h-[200px]">
         <p className="text-gray-500">Select an invoice to view details</p>
       </div>
     );
@@ -131,15 +131,16 @@ export function InvoiceDetail({
   };
 
   return (
-    <div className="w-1/2 bg-white border-l border-gray-200 overflow-auto">
-      <div className="p-6">
+    <div className="w-full bg-white border-gray-200 overflow-auto">
+      <div className="p-4 md:p-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Invoice Details</h2>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={handlePrint}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
+          <h2 className="text-lg md:text-xl font-semibold">Invoice Details</h2>
+          <div className="flex space-x-2 w-full sm:w-auto">
+            <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-none">
               <Printer className="mr-2 h-4 w-4" />
-              Print
+              <span className="hidden sm:inline">Print</span>
+              <span className="sm:hidden">Print</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -175,7 +176,7 @@ export function InvoiceDetail({
         </div>
 
         {/* Invoice Info */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
           <div>
             <h3 className="font-semibold text-lg mb-1">{invoice.number}</h3>
             <p className="text-sm text-gray-600">
@@ -188,9 +189,9 @@ export function InvoiceDetail({
               </p>
             )}
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <p className="text-sm text-gray-600 mb-1">Amount Due</p>
-            <p className="text-2xl font-bold">
+            <p className="text-xl md:text-2xl font-bold">
               {formatCurrency(invoice.amount)}
             </p>
             {invoice.amount !== invoice.total && (
@@ -214,7 +215,7 @@ export function InvoiceDetail({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Course Name</p>
@@ -227,7 +228,7 @@ export function InvoiceDetail({
                         <Hash className="mr-1 h-3 w-3" />
                         Course ID
                       </p>
-                      <p className="font-medium font-mono">
+                      <p className="font-medium font-mono text-sm">
                         {invoice.courseInfo.courseId}
                       </p>
                     </div>
@@ -255,7 +256,7 @@ export function InvoiceDetail({
         )}
 
         {/* Bill To & Payment Details */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-gray-600">
@@ -319,39 +320,58 @@ export function InvoiceDetail({
         </div>
 
         {/* Invoice Items */}
-        <Card className="mb-6">
+        <Card className="mb-4 md:mb-6">
           <CardHeader>
             <CardTitle>Invoice Items</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>DESCRIPTION</TableHead>
-                  <TableHead className="text-center">QUANTITY</TableHead>
-                  <TableHead className="text-right">UNIT PRICE</TableHead>
-                  <TableHead className="text-right">AMOUNT</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoice.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">
-                      {item.description}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {item.quantity}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(item.unitPrice)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(item.amount)}
-                    </TableCell>
+            {/* Desktop Table View */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>DESCRIPTION</TableHead>
+                    <TableHead className="text-center">QUANTITY</TableHead>
+                    <TableHead className="text-right">UNIT PRICE</TableHead>
+                    <TableHead className="text-right">AMOUNT</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {invoice.items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">
+                        {item.description}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.quantity}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(item.unitPrice)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(item.amount)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="sm:hidden space-y-3">
+              {invoice.items.map((item) => (
+                <div key={item.id} className="border border-gray-200 rounded-lg p-3">
+                  <div className="font-medium mb-2">{item.description}</div>
+                  <div className="flex justify-between items-center text-sm">
+                    <div className="flex gap-4">
+                      <span>Qty: {item.quantity}</span>
+                      <span>@{formatCurrency(item.unitPrice)}</span>
+                    </div>
+                    <span className="font-semibold">{formatCurrency(item.amount)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
 
             <Separator className="my-4" />
 

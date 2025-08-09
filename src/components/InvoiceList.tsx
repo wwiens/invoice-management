@@ -6,6 +6,7 @@ import type { FilterOptions, Invoice } from "@/types/invoice";
 import { PaymentService } from "@/utils/paymentService";
 import { AlertCircle, CheckCircle, Clock, DollarSign, X } from "lucide-react";
 import { toast } from "sonner";
+import { InvoiceDetail } from "./InvoiceDetail";
 import { StatusBadge } from "./StatusBadge";
 
 interface InvoiceListProps {
@@ -15,6 +16,9 @@ interface InvoiceListProps {
   onPaymentStatusChange: (invoice: Invoice, isPaid: boolean) => void;
   onMarkPaid?: (invoice: Invoice) => void; // New prop for payment dialog
   filters: FilterOptions;
+  onEditInvoice?: (invoice: Invoice) => void;
+  onDeleteInvoice?: (invoiceId: string) => void;
+  showInlineDetails?: boolean;
 }
 
 export function InvoiceList({
@@ -24,6 +28,9 @@ export function InvoiceList({
   onPaymentStatusChange,
   onMarkPaid,
   filters,
+  onEditInvoice,
+  onDeleteInvoice,
+  showInlineDetails = false,
 }: InvoiceListProps) {
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesStatus =
@@ -115,58 +122,60 @@ export function InvoiceList({
     <div className="flex-1 overflow-auto">
       <div className="space-y-1">
         {filteredInvoices.map((invoice) => (
-          <div
-            key={invoice.id}
-            onClick={() => onSelectInvoice(invoice)}
-            className={cn(
-              "p-4 cursor-pointer border-b border-gray-200 transition-colors",
-              getRowBackgroundColor(invoice),
-            )}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
+          <div key={invoice.id}>
+            <div
+              onClick={() => onSelectInvoice(invoice)}
+              className={cn(
+                "p-4 cursor-pointer border-b border-gray-200 transition-colors",
+                getRowBackgroundColor(invoice),
+              )}
+            >
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-gray-900 truncate">
                       {invoice.number}
                     </h3>
                     {getUrgencyIndicator(invoice)}
                   </div>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-gray-900 text-sm sm:text-base">
                     {formatCurrency(invoice.amount)}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-600">{invoice.client.name}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <p className="text-sm text-gray-600 truncate">{invoice.client.name}</p>
                   <p className="text-sm text-gray-500">{invoice.dueDate}</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-3 flex justify-between items-center">
+            <div className="mt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <StatusBadge status={invoice.status} />
 
               {/* Payment Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 {invoice.status === "paid" ? (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={(e) => handleMarkAsUnpaid(e, invoice)}
-                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                    className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 flex-1 sm:flex-none"
                   >
                     <X className="h-3 w-3 mr-1" />
-                    Mark Unpaid
+                    <span className="hidden sm:inline">Mark Unpaid</span>
+                    <span className="sm:hidden">Unpaid</span>
                   </Button>
                 ) : invoice.status !== "draft" ? (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={(e) => handleMarkAsPaid(e, invoice)}
-                    className="text-green-600 hover:text-green-700 border-green-200 hover:border-green-300"
+                    className="text-green-600 hover:text-green-700 border-green-200 hover:border-green-300 flex-1 sm:flex-none"
                   >
                     <CheckCircle className="h-3 w-3 mr-1" />
-                    Mark Paid
+                    <span className="hidden sm:inline">Mark Paid</span>
+                    <span className="sm:hidden">Paid</span>
                   </Button>
                 ) : null}
               </div>
@@ -185,6 +194,19 @@ export function InvoiceList({
               <div className="mt-2 flex items-center gap-1 text-xs text-red-600">
                 <AlertCircle className="h-3 w-3" />
                 {PaymentService.generatePaymentReminder(invoice)}
+              </div>
+            )}
+            </div>
+            
+            {/* Mobile Inline Details */}
+            {showInlineDetails && selectedInvoice?.id === invoice.id && (
+              <div className="lg:hidden bg-gray-50 border-l-4 border-blue-500">
+                <InvoiceDetail
+                  invoice={selectedInvoice}
+                  onEditInvoice={onEditInvoice}
+                  onMarkPaid={onMarkPaid}
+                  onDeleteInvoice={onDeleteInvoice}
+                />
               </div>
             )}
           </div>
