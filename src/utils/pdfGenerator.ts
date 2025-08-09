@@ -1,6 +1,7 @@
 import type { Invoice } from "@/types/invoice";
 import jsPDF from "jspdf";
 import { formatPaymentTerms } from "@/utils/paymentTerms";
+import { BUSINESS_PAYMENT_SETTINGS } from "@/config/paymentSettings";
 
 export class InvoicePDFGenerator {
   private doc: jsPDF;
@@ -20,8 +21,8 @@ export class InvoicePDFGenerator {
     this.addHeader();
     this.addInvoiceInfo(invoice);
     this.addCourseInfo(invoice);
-    this.addBillingInfo(invoice);
-    this.addItemsTable(invoice);
+    const itemsEndY = this.addItemsTable(invoice);
+    this.addPaymentInfo(invoice, itemsEndY);
     this.addFooter(invoice);
 
     // Download the PDF
@@ -70,40 +71,72 @@ export class InvoicePDFGenerator {
   private addInvoiceInfo(invoice: Invoice): void {
     const startY = this.margin + 30;
 
-    // Invoice details
+    // Bill To section (left side)
+    this.doc.setFillColor(248, 249, 250);
+    this.doc.rect(this.margin, startY, 85, 35, "F");
+
+    this.doc.setTextColor(100, 100, 100);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(10);
+    this.doc.text("BILL TO", this.margin + 5, startY + 8);
+
+    this.doc.setTextColor(0, 0, 0);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(12);
+    this.doc.text(invoice.client.name, this.margin + 5, startY + 16);
+
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(10);
+    this.doc.text(invoice.client.address, this.margin + 5, startY + 22);
+    this.doc.text(
+      `${invoice.client.city}, ${invoice.client.state} ${invoice.client.zipCode}`,
+      this.margin + 5,
+      startY + 27,
+    );
+
+    if (invoice.client.taxId) {
+      this.doc.text(
+        `Tax ID: ${invoice.client.taxId}`,
+        this.margin + 5,
+        startY + 32,
+      );
+    }
+
+    // Invoice details (right side) - moved down slightly
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(11);
     this.doc.setTextColor(60, 60, 60);
 
     const rightColumnX = this.pageWidth - this.margin - 80;
+    const invoiceDetailsY = startY + 5; // Move down by 5 units
 
-    this.doc.text("Invoice Number:", rightColumnX, startY);
+    this.doc.text("Invoice Number:", rightColumnX, invoiceDetailsY);
     this.doc.setFont("helvetica", "bold");
-    this.doc.text(invoice.number, rightColumnX + 35, startY);
-
-    this.doc.setFont("helvetica", "normal");
-    this.doc.text("Issue Date:", rightColumnX, startY + 7);
-    this.doc.setFont("helvetica", "bold");
-    this.doc.text(invoice.issuedDate, rightColumnX + 35, startY + 7);
+    this.doc.text(invoice.number, rightColumnX + 35, invoiceDetailsY);
 
     this.doc.setFont("helvetica", "normal");
-    this.doc.text("Due Date:", rightColumnX, startY + 14);
+    this.doc.text("Issue Date:", rightColumnX, invoiceDetailsY + 7);
     this.doc.setFont("helvetica", "bold");
-    this.doc.text(invoice.dueDate, rightColumnX + 35, startY + 14);
+    this.doc.text(invoice.issuedDate, rightColumnX + 35, invoiceDetailsY + 7);
+
+    this.doc.setFont("helvetica", "normal");
+    this.doc.text("Due Date:", rightColumnX, invoiceDetailsY + 14);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.text(invoice.dueDate, rightColumnX + 35, invoiceDetailsY + 14);
 
     // Payment terms if available
     if (invoice.paymentTerms) {
       this.doc.setFont("helvetica", "normal");
-      this.doc.text("Payment Terms:", rightColumnX, startY + 21);
+      this.doc.text("Payment Terms:", rightColumnX, invoiceDetailsY + 21);
       this.doc.setFont("helvetica", "bold");
-      this.doc.text(formatPaymentTerms(invoice.paymentTerms), rightColumnX + 35, startY + 21);
+      this.doc.text(formatPaymentTerms(invoice.paymentTerms), rightColumnX + 35, invoiceDetailsY + 21);
     }
   }
 
   private addCourseInfo(invoice: Invoice): void {
     if (!invoice.courseInfo) return;
 
-    const startY = this.margin + (invoice.paymentTerms ? 67 : 60);
+    const startY = this.margin + (invoice.paymentTerms ? 77 : 70);
 
     // Course Information section
     this.doc.setFillColor(245, 247, 250); // Light blue background
@@ -149,93 +182,11 @@ export class InvoicePDFGenerator {
     this.doc.text(invoice.courseInfo.trainingDates, midPoint + 30, startY + 22);
   }
 
-  private addBillingInfo(invoice: Invoice): void {
-    let baseOffset = 60;
+
+  private addItemsTable(invoice: Invoice): number {
+    let baseOffset = 92;  // Reduced from 110 to move up ~1/2 inch (18 points)
     if (invoice.paymentTerms) baseOffset += 7;
-    const startY = invoice.courseInfo ? this.margin + baseOffset + 35 : this.margin + baseOffset;
-
-    // Bill To section
-    this.doc.setFillColor(248, 249, 250);
-    this.doc.rect(this.margin, startY, 85, 35, "F");
-
-    this.doc.setTextColor(100, 100, 100);
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(10);
-    this.doc.text("BILL TO", this.margin + 5, startY + 8);
-
-    this.doc.setTextColor(0, 0, 0);
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(12);
-    this.doc.text(invoice.client.name, this.margin + 5, startY + 16);
-
-    this.doc.setFont("helvetica", "normal");
-    this.doc.setFontSize(10);
-    this.doc.text(invoice.client.address, this.margin + 5, startY + 22);
-    this.doc.text(
-      `${invoice.client.city}, ${invoice.client.state} ${invoice.client.zipCode}`,
-      this.margin + 5,
-      startY + 27,
-    );
-
-    if (invoice.client.taxId) {
-      this.doc.text(
-        `Tax ID: ${invoice.client.taxId}`,
-        this.margin + 5,
-        startY + 32,
-      );
-    }
-
-    // Payment Details section (if payment info exists)
-    if (invoice.paymentMethod || invoice.transactionId) {
-      this.doc.setFillColor(248, 249, 250);
-      this.doc.rect(this.pageWidth - this.margin - 85, startY, 85, 35, "F");
-
-      this.doc.setTextColor(100, 100, 100);
-      this.doc.setFont("helvetica", "bold");
-      this.doc.setFontSize(10);
-      this.doc.text(
-        "PAYMENT DETAILS",
-        this.pageWidth - this.margin - 80,
-        startY + 8,
-      );
-
-      this.doc.setTextColor(0, 0, 0);
-      this.doc.setFont("helvetica", "normal");
-      this.doc.setFontSize(10);
-      let paymentY = startY + 16;
-
-      if (invoice.paymentMethod) {
-        this.doc.text(
-          `Payment Method: ${invoice.paymentMethod}`,
-          this.pageWidth - this.margin - 80,
-          paymentY,
-        );
-        paymentY += 6;
-      }
-
-      if (invoice.transactionId) {
-        this.doc.text(
-          `Transaction ID: ${invoice.transactionId}`,
-          this.pageWidth - this.margin - 80,
-          paymentY,
-        );
-        paymentY += 6;
-      }
-
-      if (invoice.paymentDate) {
-        this.doc.text(
-          `Payment Date: ${invoice.paymentDate}`,
-          this.pageWidth - this.margin - 80,
-          paymentY,
-        );
-      }
-    }
-  }
-
-  private addItemsTable(invoice: Invoice): void {
-    let baseOffset = 110;
-    if (invoice.paymentTerms) baseOffset += 7;
-    const startY = invoice.courseInfo ? this.margin + baseOffset + 35 : this.margin + baseOffset;
+    const startY = invoice.courseInfo ? this.margin + baseOffset + 15 : this.margin + baseOffset;
     const tableWidth = this.pageWidth - 2 * this.margin;
     const colWidths = [
       tableWidth * 0.5, // Description
@@ -322,6 +273,77 @@ export class InvoicePDFGenerator {
       totalsX + 40,
       totalsStartY + 20,
     );
+    
+    return totalsStartY + 30; // Return position after totals with some spacing
+  }
+
+  private addPaymentInfo(invoice: Invoice, startYPosition: number): void {
+    const startY = startYPosition;
+
+    this.doc.setFillColor(37, 99, 235);
+    this.doc.rect(this.margin, startY, this.pageWidth - 2 * this.margin, 12, "F");
+
+    this.doc.setTextColor(255, 255, 255);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(10);
+    this.doc.text("PAYMENT INFORMATION", this.margin + 5, startY + 8);
+
+    const leftColumnX = this.margin + 5;
+    const rightColumnX = this.pageWidth / 2 + 10;
+    const baseY = startY + 20;
+    
+    // Bank Transfer section (left side)
+    this.doc.setTextColor(0, 0, 0);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(9);
+    this.doc.text("Bank Transfer", leftColumnX, baseY);
+    
+    let leftY = baseY + 6;
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(8);
+
+    const bankInfo = BUSINESS_PAYMENT_SETTINGS.bankTransfer;
+    this.doc.text(`Bank Name: ${bankInfo.bankName}`, leftColumnX + 5, leftY);
+    leftY += 5;
+    this.doc.text(`Account Name: ${bankInfo.accountName}`, leftColumnX + 5, leftY);
+    leftY += 5;
+    this.doc.text(`Account Number: ${bankInfo.accountNumber}`, leftColumnX + 5, leftY);
+    leftY += 5;
+
+    if (bankInfo.iban) {
+      this.doc.text(`IBAN: ${bankInfo.iban}`, leftColumnX + 5, leftY);
+      leftY += 5;
+    }
+
+    if (bankInfo.swiftBic) {
+      this.doc.text(`SWIFT/BIC Code: ${bankInfo.swiftBic}`, leftColumnX + 5, leftY);
+      leftY += 5;
+    }
+
+    this.doc.text(`Currency: ${bankInfo.currency}`, leftColumnX + 5, leftY);
+
+    // Check Payment section (right side)
+    this.doc.setTextColor(0, 0, 0);
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(9);
+    this.doc.text("Check Payment", rightColumnX, baseY);
+
+    let rightY = baseY + 6;
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(8);
+
+    const checkInfo = BUSINESS_PAYMENT_SETTINGS.check;
+    this.doc.text(`Payee Name: ${checkInfo.payeeName}`, rightColumnX + 5, rightY);
+    rightY += 5;
+
+    this.doc.text("Mailing Address:", rightColumnX + 5, rightY);
+    rightY += 5;
+
+    const addressLines = this.doc.splitTextToSize(
+      checkInfo.mailingAddress,
+      (this.pageWidth / 2) - 20
+    );
+    this.doc.text(addressLines, rightColumnX + 5, rightY);
   }
 
   private addFooter(invoice: Invoice): void {
