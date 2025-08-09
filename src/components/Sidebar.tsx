@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
+import UserMenu from "./UserMenu";
 
 interface SidebarProps {
   activeTab: string;
@@ -70,16 +71,19 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             />
             <span className="instructor-lounge-brand">Instructor Lounge</span>
           </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
+          <div className="flex items-center space-x-2">
+            <UserMenu />
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -93,7 +97,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="p-6">
+        <div className="p-6 h-full flex flex-col">
           {/* Logo - Desktop only */}
           <div className="hidden lg:flex flex-col items-center mb-8">
             <Image 
@@ -131,6 +135,13 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               );
             })}
           </nav>
+          
+          {/* User Menu - Desktop */}
+          <div className="hidden lg:block mt-auto pt-6 border-t border-gray-200">
+            <div className="flex justify-center">
+              <UserMenu />
+            </div>
+          </div>
         </div>
       </div>
     </>

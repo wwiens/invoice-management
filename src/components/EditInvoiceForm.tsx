@@ -32,7 +32,8 @@ import {
   PAYMENT_TERMS_OPTIONS,
   calculateDueDate,
 } from "@/utils/paymentTerms";
-import { ApiService } from "@/utils/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthHeaders } from "@/lib/auth-utils";
 import { FileText, GraduationCap, Plus, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ export function EditInvoiceForm({
   invoice,
   onInvoiceUpdated,
 }: EditInvoiceFormProps) {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [formData, setFormData] = useState<FormData>({
@@ -122,15 +124,30 @@ export function EditInvoiceForm({
 
   // Fetch clients when form opens
   useEffect(() => {
-    if (open) {
+    if (open && user) {
       fetchClients();
     }
-  }, [open]);
+  }, [open, user]);
 
   const fetchClients = async () => {
+    if (!user) {
+      console.error("No authenticated user");
+      return;
+    }
+
     setLoadingClients(true);
     try {
-      const data = await ApiService.fetchClients();
+      const headers = await getAuthHeaders(user);
+      const response = await fetch("/api/clients", { headers });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication required");
+        }
+        throw new Error("Failed to fetch clients");
+      }
+      
+      const data = await response.json();
       setClients(data);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
@@ -272,9 +289,11 @@ export function EditInvoiceForm({
     };
 
     try {
+      const authHeaders = await getAuthHeaders(user);
       const response = await fetch(`/api/invoices/${invoice.id}`, {
         method: "PUT",
         headers: {
+          ...authHeaders,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(invoiceData),

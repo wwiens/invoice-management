@@ -18,6 +18,7 @@ interface InvoiceListProps {
   filters: FilterOptions;
   onEditInvoice?: (invoice: Invoice) => void;
   onDeleteInvoice?: (invoiceId: string) => void;
+  onDuplicateInvoice?: (invoice: Invoice) => void;
   showInlineDetails?: boolean;
 }
 
@@ -30,6 +31,7 @@ export function InvoiceList({
   filters,
   onEditInvoice,
   onDeleteInvoice,
+  onDuplicateInvoice,
   showInlineDetails = false,
 }: InvoiceListProps) {
   const filteredInvoices = invoices.filter((invoice) => {
@@ -209,6 +211,7 @@ export function InvoiceList({
                   onEditInvoice={onEditInvoice}
                   onMarkPaid={onMarkPaid}
                   onDeleteInvoice={onDeleteInvoice}
+                  onDuplicateInvoice={onDuplicateInvoice}
                 />
               </div>
             )}

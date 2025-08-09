@@ -2,66 +2,126 @@
 
 import type { Settings } from "@/types/settings";
 import { DEFAULT_SETTINGS } from "@/types/settings";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthHeaders } from "@/lib/auth-utils";
 import { createContext, useContext, useEffect, useState } from "react";
 
 interface SettingsContextType {
   settings: Settings;
   updateSettings: (settings: Settings) => void;
   resetSettings: () => void;
+  isLoading: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-const SETTINGS_STORAGE_KEY = "invoice-app-settings";
-
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load settings from localStorage on mount
+  // Load settings from API when user changes
   useEffect(() => {
-    const loadSettings = () => {
+    const loadSettings = async () => {
+      if (!user) {
+        setSettings(DEFAULT_SETTINGS);
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
-        if (stored) {
-          const parsedSettings = JSON.parse(stored);
-          setSettings(parsedSettings);
+        const headers = await getAuthHeaders(user);
+        const response = await fetch("/api/settings", { headers });
+
+        if (response.ok) {
+          const userSettings = await response.json();
+          setSettings(userSettings);
+        } else {
+          console.error("Failed to load settings from API");
+          setSettings(DEFAULT_SETTINGS);
         }
       } catch (error) {
-        console.error("Failed to load settings from localStorage:", error);
+        console.error("Failed to load settings:", error);
+        setSettings(DEFAULT_SETTINGS);
       } finally {
-        setIsInitialized(true);
+        setIsLoading(false);
       }
     };
 
     loadSettings();
-  }, []);
+  }, [user]);
 
-  // Save settings to localStorage whenever they change
-  useEffect(() => {
-    if (isInitialized) {
-      try {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      } catch (error) {
-        console.error("Failed to save settings to localStorage:", error);
-      }
+  const updateSettings = async (newSettings: Settings) => {
+    if (!user) {
+      console.error("Cannot update settings: no authenticated user");
+      return;
     }
-  }, [settings, isInitialized]);
 
-  const updateSettings = (newSettings: Settings) => {
-    setSettings({
+    // Optimistically update UI
+    const settingsWithTimestamp = {
       ...newSettings,
       lastUpdated: new Date().toISOString(),
-    });
+    };
+    setSettings(settingsWithTimestamp);
+
+    try {
+      const headers = await getAuthHeaders(user);
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(settingsWithTimestamp),
+      });
+
+      if (response.ok) {
+        const savedSettings = await response.json();
+        setSettings(savedSettings);
+      } else {
+        console.error("Failed to save settings to API");
+        // Revert optimistic update on error
+        // Could reload from server here if needed
+      }
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      // Revert optimistic update on error
+      // Could reload from server here if needed
+    }
   };
 
-  const resetSettings = () => {
-    setSettings(DEFAULT_SETTINGS);
-    localStorage.removeItem(SETTINGS_STORAGE_KEY);
+  const resetSettings = async () => {
+    if (!user) {
+      console.error("Cannot reset settings: no authenticated user");
+      return;
+    }
+
+    try {
+      const headers = await getAuthHeaders(user);
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(DEFAULT_SETTINGS),
+      });
+
+      if (response.ok) {
+        const savedSettings = await response.json();
+        setSettings(savedSettings);
+      } else {
+        console.error("Failed to reset settings via API");
+        setSettings(DEFAULT_SETTINGS);
+      }
+    } catch (error) {
+      console.error("Failed to reset settings:", error);
+      setSettings(DEFAULT_SETTINGS);
+    }
   };
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, resetSettings }}>
+    <SettingsContext.Provider value={{ settings, updateSettings, resetSettings, isLoading }}>
       {children}
     </SettingsContext.Provider>
   );

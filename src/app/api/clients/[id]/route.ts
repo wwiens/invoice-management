@@ -4,15 +4,21 @@ import {
   updateClient,
 } from "@/services/clientService";
 import type { UpdateClientData } from "@/types/client";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserFromRequest } from "@/lib/auth-middleware";
 
 // GET /api/clients/[id] - Get a specific client
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
-    const client = await getClientById(params.id);
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const client = await getClientById(params.id, userId);
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -30,10 +36,15 @@ export async function GET(
 
 // PUT /api/clients/[id] - Update a client
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const clientData: Partial<UpdateClientData> = await request.json();
 
     // Validate email format if provided
@@ -50,7 +61,7 @@ export async function PUT(
     const updatedClient = await updateClient({
       ...clientData,
       id: params.id,
-    });
+    }, userId);
 
     if (!updatedClient) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -68,11 +79,16 @@ export async function PUT(
 
 // DELETE /api/clients/[id] - Delete a client
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
-    const success = await deleteClient(params.id);
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const success = await deleteClient(params.id, userId);
 
     if (!success) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });

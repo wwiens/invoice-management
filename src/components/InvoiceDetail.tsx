@@ -33,6 +33,7 @@ import { formatPaymentTerms } from "@/utils/paymentTerms";
 import { useSettings } from "@/contexts/SettingsContext";
 import {
   Calendar,
+  Copy,
   Download,
   FileText,
   GraduationCap,
@@ -48,6 +49,7 @@ interface InvoiceDetailProps {
   onEditInvoice?: (invoice: Invoice) => void;
   onMarkPaid?: (invoice: Invoice) => void;
   onDeleteInvoice?: (invoiceId: string) => void;
+  onDuplicateInvoice?: (invoice: Invoice) => void;
 }
 
 export function InvoiceDetail({
@@ -55,6 +57,7 @@ export function InvoiceDetail({
   onEditInvoice,
   onMarkPaid,
   onDeleteInvoice,
+  onDuplicateInvoice,
 }: InvoiceDetailProps) {
   const { settings } = useSettings();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -117,6 +120,16 @@ export function InvoiceDetail({
     }
   };
 
+  const handleDuplicateClick = () => {
+    if (onDuplicateInvoice && invoice) {
+      onDuplicateInvoice(invoice);
+      toast.success("Invoice duplicated successfully", {
+        description: `A duplicate of invoice ${invoice.number} has been created with a new invoice number.`,
+        duration: 3000,
+      });
+    }
+  };
+
   const getPaymentMethodDisplay = (method: string): string => {
     const paymentMethods: Record<string, string> = {
       bank_transfer: "Bank Transfer",
@@ -157,6 +170,10 @@ export function InvoiceDetail({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleEditClick}>
                   Edit Invoice
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDuplicateClick}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Duplicate Invoice
                 </DropdownMenuItem>
                 {invoice.status !== "paid" && (
                   <DropdownMenuItem

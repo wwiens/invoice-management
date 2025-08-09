@@ -29,7 +29,8 @@ import type {
   PaymentTerms,
 } from "@/types/invoice";
 import { generateInvoiceNumber } from "@/utils/invoiceNumberGenerator";
-import { ApiService } from "@/utils/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthHeaders } from "@/lib/auth-utils";
 import {
   PAYMENT_TERMS_OPTIONS,
   calculateDueDate,
@@ -60,6 +61,7 @@ export function NewInvoiceForm({
   onOpenChange,
   onInvoiceCreated,
 }: NewInvoiceFormProps) {
+  const { user } = useAuth();
   const { settings } = useSettings();
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
@@ -83,10 +85,10 @@ export function NewInvoiceForm({
 
   // Fetch clients when form opens
   useEffect(() => {
-    if (open) {
+    if (open && user) {
       fetchClients();
     }
-  }, [open]);
+  }, [open, user]);
 
   // Auto-calculate due date when issued date or payment terms change
   useEffect(() => {
@@ -123,9 +125,24 @@ export function NewInvoiceForm({
   }, [formData.clientId, clients]);
 
   const fetchClients = async () => {
+    if (!user) {
+      console.error("No authenticated user");
+      return;
+    }
+
     setLoadingClients(true);
     try {
-      const data = await ApiService.fetchClients();
+      const headers = await getAuthHeaders(user);
+      const response = await fetch("/api/clients", { headers });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication required");
+        }
+        throw new Error("Failed to fetch clients");
+      }
+      
+      const data = await response.json();
       setClients(data);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
@@ -283,9 +300,16 @@ export function NewInvoiceForm({
     };
 
     try {
+      if (!user) {
+        console.error("No authenticated user");
+        return;
+      }
+
+      const authHeaders = await getAuthHeaders(user);
       const response = await fetch("/api/invoices", {
         method: "POST",
         headers: {
+          ...authHeaders,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(invoiceData),

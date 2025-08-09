@@ -53,20 +53,34 @@ function dbToClient(row: any): Client {
 }
 
 // Get all clients
-export async function getAllClients(): Promise<Client[]> {
-  const clientsQuery = `
+export async function getAllClients(userId?: string): Promise<Client[]> {
+  let clientsQuery = `
     SELECT * FROM clients 
-    ORDER BY name ASC
   `;
+  const values: any[] = [];
 
-  const rows = await query<DbClient>(clientsQuery);
+  if (userId) {
+    clientsQuery += ` WHERE user_id = $1 `;
+    values.push(userId);
+  }
+  
+  clientsQuery += ` ORDER BY name ASC`;
+
+  const rows = await query<DbClient>(clientsQuery, values);
   return rows.map(dbToClient);
 }
 
 // Get client by ID
-export async function getClientById(id: string): Promise<Client | null> {
-  const clientQuery = "SELECT * FROM clients WHERE id = $1";
-  const rows = await query<DbClient>(clientQuery, [id]);
+export async function getClientById(id: string, userId?: string): Promise<Client | null> {
+  let clientQuery = "SELECT * FROM clients WHERE id = $1";
+  const values = [id];
+  
+  if (userId) {
+    clientQuery += " AND user_id = $2";
+    values.push(userId);
+  }
+  
+  const rows = await query<DbClient>(clientQuery, values);
 
   if (rows.length === 0) return null;
   return dbToClient(rows[0]);
@@ -75,12 +89,13 @@ export async function getClientById(id: string): Promise<Client | null> {
 // Create a new client
 export async function createClient(
   clientData: CreateClientData,
+  userId: string,
 ): Promise<Client> {
   const insertQuery = `
     INSERT INTO clients (
       name, email, phone, address, city, state, zip_code, tax_id, default_unit_price, requires_course_info,
-      billing_address_street, billing_address_city, billing_address_state, billing_address_zip
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      billing_address_street, billing_address_city, billing_address_state, billing_address_zip, user_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING *
   `;
 
@@ -99,6 +114,7 @@ export async function createClient(
     clientData.billingAddress?.city,
     clientData.billingAddress?.state,
     clientData.billingAddress?.zipCode,
+    userId,
   ];
 
   const rows = await query<DbClient>(insertQuery, values);
@@ -108,6 +124,7 @@ export async function createClient(
 // Update an existing client
 export async function updateClient(
   clientData: UpdateClientData,
+  userId?: string,
 ): Promise<Client | null> {
   const updateFields = [];
   const values = [];
@@ -190,17 +207,24 @@ export async function updateClient(
 
   if (updateFields.length === 0) {
     // No fields to update
-    return await getClientById(clientData.id);
+    return await getClientById(clientData.id, userId);
   }
 
-  const updateQuery = `
+  let updateQuery = `
     UPDATE clients 
     SET ${updateFields.join(", ")}, updated_at = NOW()
     WHERE id = $${paramCount}
-    RETURNING *
   `;
 
   values.push(clientData.id);
+  paramCount++;
+
+  if (userId) {
+    updateQuery += ` AND user_id = $${paramCount}`;
+    values.push(userId);
+  }
+
+  updateQuery += ` RETURNING *`;
 
   const rows = await query<DbClient>(updateQuery, values);
   if (rows.length === 0) return null;
@@ -209,50 +233,81 @@ export async function updateClient(
 }
 
 // Delete a client
-export async function deleteClient(id: string): Promise<boolean> {
+export async function deleteClient(id: string, userId?: string): Promise<boolean> {
   // First check if client has any invoices
-  const invoiceCheckQuery =
-    "SELECT COUNT(*) as count FROM invoices WHERE client_id = $1";
-  const invoiceRows = await query<{ count: string }>(invoiceCheckQuery, [id]);
+  let invoiceCheckQuery = "SELECT COUNT(*) as count FROM invoices WHERE client_id = $1";
+  const invoiceCheckValues = [id];
+  
+  if (userId) {
+    invoiceCheckQuery += " AND user_id = $2";
+    invoiceCheckValues.push(userId);
+  }
+  
+  const invoiceRows = await query<{ count: string }>(invoiceCheckQuery, invoiceCheckValues);
 
   if (Number.parseInt(invoiceRows[0].count) > 0) {
     throw new Error("Cannot delete client with existing invoices");
   }
 
-  const deleteQuery = "DELETE FROM clients WHERE id = $1";
-  const result = await query(deleteQuery, [id]);
+  let deleteQuery = "DELETE FROM clients WHERE id = $1";
+  const deleteValues = [id];
+  
+  if (userId) {
+    deleteQuery += " AND user_id = $2";
+    deleteValues.push(userId);
+  }
+  
+  const result = await query(deleteQuery, deleteValues);
 
   return result.length > 0;
 }
 
 // Search clients by name
-export async function searchClients(searchTerm: string): Promise<Client[]> {
-  const searchQuery = `
+export async function searchClients(searchTerm: string, userId?: string): Promise<Client[]> {
+  let searchQuery = `
     SELECT * FROM clients 
     WHERE name ILIKE $1
+  `;
+  const values = [`%${searchTerm}%`];
+  
+  if (userId) {
+    searchQuery += ` AND user_id = $2`;
+    values.push(userId);
+  }
+  
+  searchQuery += `
     ORDER BY name ASC
     LIMIT 50
   `;
 
-  const rows = await query<DbClient>(searchQuery, [`%${searchTerm}%`]);
+  const rows = await query<DbClient>(searchQuery, values);
   return rows.map(dbToClient);
 }
 
 // Get clients with invoice counts
-export async function getClientsWithInvoiceCounts(): Promise<
+export async function getClientsWithInvoiceCounts(userId?: string): Promise<
   Array<Client & { invoiceCount: number }>
 > {
-  const clientsQuery = `
+  let clientsQuery = `
     SELECT 
       c.*,
       COUNT(i.id) as invoice_count
     FROM clients c
-    LEFT JOIN invoices i ON c.id = i.client_id
+    LEFT JOIN invoices i ON c.id = i.client_id AND i.user_id = c.user_id
+  `;
+  const values: any[] = [];
+  
+  if (userId) {
+    clientsQuery += ` WHERE c.user_id = $1`;
+    values.push(userId);
+  }
+  
+  clientsQuery += `
     GROUP BY c.id
     ORDER BY c.name ASC
   `;
 
-  const rows = await query<DbClient & { invoice_count: string }>(clientsQuery);
+  const rows = await query<DbClient & { invoice_count: string }>(clientsQuery, values);
   return rows.map((row) => ({
     ...dbToClient(row),
     invoiceCount: Number.parseInt(row.invoice_count),

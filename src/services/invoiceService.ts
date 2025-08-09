@@ -128,38 +128,57 @@ function dbToInvoice(
 }
 
 // Get all invoices
-export async function getAllInvoices(): Promise<Invoice[]> {
-  const invoicesQuery = `
+export async function getAllInvoices(userId?: string): Promise<Invoice[]> {
+  let invoicesQuery = `
     SELECT 
       i.*,
       c.name, c.address, c.city, c.state, c.zip_code, c.tax_id
     FROM invoices i
     JOIN clients c ON i.client_id = c.id
-    ORDER BY i.created_at DESC
   `;
+  const values: any[] = [];
 
-  const invoiceRows = await query<DbInvoice & DbClient>(invoicesQuery);
+  if (userId) {
+    invoicesQuery += ` WHERE i.user_id = $1 AND c.user_id = $1`;
+    values.push(userId);
+  }
 
-  // Get all items for these invoices
+  invoicesQuery += ` ORDER BY i.created_at DESC`;
+
+  const invoiceRows = await query<DbInvoice & DbClient>(invoicesQuery, values);
+
+  // Get all items for these invoices - filter by user_id to ensure data isolation
   const invoiceIds = invoiceRows.map((row) => row.id);
   if (invoiceIds.length === 0) return [];
 
-  const itemsQuery = `
+  let itemsQuery = `
     SELECT * FROM invoice_items 
     WHERE invoice_id = ANY($1)
-    ORDER BY created_at ASC
   `;
-  const itemRows = await query<DbInvoiceItem>(itemsQuery, [invoiceIds]);
+  let itemsValues: any[] = [invoiceIds];
+  
+  if (userId) {
+    itemsQuery += ` AND user_id = $2`;
+    itemsValues.push(userId);
+  }
+  
+  itemsQuery += ` ORDER BY created_at ASC`;
+  const itemRows = await query<DbInvoiceItem>(itemsQuery, itemsValues);
 
-  // Get attachments
-  const attachmentsQuery = `
+  // Get attachments - filter by user_id to ensure data isolation
+  let attachmentsQuery = `
     SELECT * FROM invoice_attachments 
     WHERE invoice_id = ANY($1)
-    ORDER BY created_at ASC
   `;
-  const attachmentRows = await query<DbInvoiceAttachment>(attachmentsQuery, [
-    invoiceIds,
-  ]);
+  let attachmentsValues: any[] = [invoiceIds];
+  
+  if (userId) {
+    attachmentsQuery += ` AND user_id = $2`;
+    attachmentsValues.push(userId);
+  }
+  
+  attachmentsQuery += ` ORDER BY created_at ASC`;
+  const attachmentRows = await query<DbInvoiceAttachment>(attachmentsQuery, attachmentsValues);
 
   // Group items and attachments by invoice_id
   const itemsByInvoice = itemRows.reduce(
@@ -191,8 +210,8 @@ export async function getAllInvoices(): Promise<Invoice[]> {
 }
 
 // Get invoice by ID
-export async function getInvoiceById(id: string): Promise<Invoice | null> {
-  const invoiceQuery = `
+export async function getInvoiceById(id: string, userId?: string): Promise<Invoice | null> {
+  let invoiceQuery = `
     SELECT 
       i.*,
       c.name, c.address, c.city, c.state, c.zip_code, c.tax_id
@@ -200,23 +219,41 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
     JOIN clients c ON i.client_id = c.id
     WHERE i.id = $1
   `;
+  const values = [id];
 
-  const invoiceRows = await query<DbInvoice & DbClient>(invoiceQuery, [id]);
+  if (userId) {
+    invoiceQuery += ` AND i.user_id = $2 AND c.user_id = $2`;
+    values.push(userId);
+  }
+
+  const invoiceRows = await query<DbInvoice & DbClient>(invoiceQuery, values);
   if (invoiceRows.length === 0) return null;
 
   const invoiceRow = invoiceRows[0];
 
-  // Get items
-  const itemsQuery =
-    "SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY created_at ASC";
-  const itemRows = await query<DbInvoiceItem>(itemsQuery, [id]);
+  // Get items - filter by user_id to ensure data isolation
+  let itemsQuery = "SELECT * FROM invoice_items WHERE invoice_id = $1";
+  let itemValues = [id];
+  
+  if (userId) {
+    itemsQuery += " AND user_id = $2";
+    itemValues.push(userId);
+  }
+  
+  itemsQuery += " ORDER BY created_at ASC";
+  const itemRows = await query<DbInvoiceItem>(itemsQuery, itemValues);
 
-  // Get attachments
-  const attachmentsQuery =
-    "SELECT * FROM invoice_attachments WHERE invoice_id = $1 ORDER BY created_at ASC";
-  const attachmentRows = await query<DbInvoiceAttachment>(attachmentsQuery, [
-    id,
-  ]);
+  // Get attachments - filter by user_id to ensure data isolation
+  let attachmentsQuery = "SELECT * FROM invoice_attachments WHERE invoice_id = $1";
+  let attachmentValues = [id];
+  
+  if (userId) {
+    attachmentsQuery += " AND user_id = $2";
+    attachmentValues.push(userId);
+  }
+  
+  attachmentsQuery += " ORDER BY created_at ASC";
+  const attachmentRows = await query<DbInvoiceAttachment>(attachmentsQuery, attachmentValues);
 
   return dbToInvoice(invoiceRow, invoiceRow, itemRows, attachmentRows);
 }
@@ -224,6 +261,7 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
 // Create a new invoice
 export async function createInvoice(
   invoiceData: Partial<Invoice> & { clientId?: string },
+  userId: string,
 ): Promise<Invoice> {
   try {
     return await transaction(async (client: PoolClient) => {
@@ -232,8 +270,8 @@ export async function createInvoice(
         INSERT INTO invoices (
           number, client_id, status, subtotal, tax, total,
           issued_date, due_date, payment_terms_days, payment_terms_description, notes, payment_method, transaction_id, payment_date,
-          course_name, course_id, cohort, training_dates
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+          course_name, course_id, cohort, training_dates, user_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
         RETURNING id
       `;
 
@@ -256,6 +294,7 @@ export async function createInvoice(
         invoiceData.courseInfo?.courseId,
         invoiceData.courseInfo?.cohort,
         invoiceData.courseInfo?.trainingDates,
+        userId,
       ]);
 
       const invoiceId = insertResult.rows[0].id;
@@ -263,8 +302,8 @@ export async function createInvoice(
       // Insert items
       if (invoiceData.items && invoiceData.items.length > 0) {
         const itemInsert = `
-        INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount, user_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `;
 
         for (const item of invoiceData.items) {
@@ -274,6 +313,7 @@ export async function createInvoice(
             item.quantity,
             item.unitPrice,
             item.amount,
+            userId,
           ]);
         }
       }
@@ -317,33 +357,41 @@ export async function updateInvoiceStatus(
     transactionId?: string;
     paymentDate?: string;
   },
+  userId?: string,
 ): Promise<Invoice | null> {
-  const updateQuery = `
+  let updateQuery = `
     UPDATE invoices 
     SET status = $1, payment_method = $2, transaction_id = $3, payment_date = $4
     WHERE id = $5
   `;
-
-  await query(updateQuery, [
+  const values = [
     status,
     paymentData?.paymentMethod,
     paymentData?.transactionId,
     paymentData?.paymentDate ? new Date(paymentData.paymentDate) : null,
     id,
-  ]);
+  ];
 
-  return await getInvoiceById(id);
+  if (userId) {
+    updateQuery += ` AND user_id = $6`;
+    values.push(userId);
+  }
+
+  await query(updateQuery, values);
+
+  return await getInvoiceById(id, userId);
 }
 
 // Update an invoice
 export async function updateInvoice(
   id: string,
   invoiceData: Partial<Invoice> & { clientId?: string },
+  userId?: string,
 ): Promise<Invoice> {
   try {
     return await transaction(async (client) => {
       // Update invoice
-      const invoiceUpdate = `
+      let invoiceUpdate = `
         UPDATE invoices SET
           number = $1, client_id = $2, status = $3, subtotal = $4, tax = $5, total = $6,
           issued_date = $7, due_date = $8, payment_terms_days = $9, payment_terms_description = $10, notes = $11, payment_method = $12, transaction_id = $13, payment_date = $14,
@@ -351,7 +399,7 @@ export async function updateInvoice(
         WHERE id = $19
       `;
 
-      await client.query(invoiceUpdate, [
+      const values = [
         invoiceData.number,
         invoiceData.clientId,
         invoiceData.status,
@@ -371,27 +419,44 @@ export async function updateInvoice(
         invoiceData.courseInfo?.cohort,
         invoiceData.courseInfo?.trainingDates,
         id,
-      ]);
+      ];
+
+      if (userId) {
+        invoiceUpdate += ` AND user_id = $20`;
+        values.push(userId);
+      }
+
+      await client.query(invoiceUpdate, values);
 
       // Delete existing items
-      await client.query("DELETE FROM invoice_items WHERE invoice_id = $1", [
-        id,
-      ]);
+      if (userId) {
+        await client.query("DELETE FROM invoice_items WHERE invoice_id = $1 AND user_id = $2", [
+          id, userId,
+        ]);
+      } else {
+        await client.query("DELETE FROM invoice_items WHERE invoice_id = $1", [
+          id,
+        ]);
+      }
 
       // Insert updated items
       if (invoiceData.items && invoiceData.items.length > 0) {
         const itemInsert = `
-          INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, amount, user_id)
+          VALUES ($1, $2, $3, $4, $5, $6)
         `;
 
         for (const item of invoiceData.items) {
+          if (!userId) {
+            throw new Error("User ID is required for creating invoice items");
+          }
           await client.query(itemInsert, [
             id,
             item.description,
             item.quantity,
             item.unitPrice,
             item.amount,
+            userId,
           ]);
         }
       }
@@ -427,26 +492,45 @@ export async function updateInvoice(
 }
 
 // Delete an invoice
-export async function deleteInvoice(id: string): Promise<boolean> {
+export async function deleteInvoice(id: string, userId?: string): Promise<boolean> {
   try {
     return await transaction(async (client) => {
       // Delete invoice attachments first
-      await client.query(
-        "DELETE FROM invoice_attachments WHERE invoice_id = $1",
-        [id],
-      );
+      if (userId) {
+        await client.query(
+          "DELETE FROM invoice_attachments WHERE invoice_id = $1 AND user_id = $2",
+          [id, userId],
+        );
 
-      // Delete invoice items
-      await client.query("DELETE FROM invoice_items WHERE invoice_id = $1", [
-        id,
-      ]);
+        // Delete invoice items
+        await client.query("DELETE FROM invoice_items WHERE invoice_id = $1 AND user_id = $2", [
+          id, userId,
+        ]);
 
-      // Delete the invoice
-      const result = await client.query("DELETE FROM invoices WHERE id = $1", [
-        id,
-      ]);
+        // Delete the invoice
+        const result = await client.query("DELETE FROM invoices WHERE id = $1 AND user_id = $2", [
+          id, userId,
+        ]);
+        
+        return (result.rowCount ?? 0) > 0;
+      } else {
+        await client.query(
+          "DELETE FROM invoice_attachments WHERE invoice_id = $1",
+          [id],
+        );
 
-      return (result.rowCount ?? 0) > 0;
+        // Delete invoice items
+        await client.query("DELETE FROM invoice_items WHERE invoice_id = $1", [
+          id,
+        ]);
+
+        // Delete the invoice
+        const result = await client.query("DELETE FROM invoices WHERE id = $1", [
+          id,
+        ]);
+        
+        return (result.rowCount ?? 0) > 0;
+      }
     });
   } catch (error) {
     console.error("Error deleting invoice:", error);

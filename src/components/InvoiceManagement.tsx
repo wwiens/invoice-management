@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { FilterOptions, Invoice, InvoiceStatus } from "@/types/invoice";
 import { PaymentService } from "@/utils/paymentService";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthHeaders } from "@/lib/auth-utils";
 import { AlertCircle, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EditInvoiceForm } from "./EditInvoiceForm";
@@ -14,6 +16,7 @@ import { InvoiceList } from "./InvoiceList";
 import { NewInvoiceForm } from "./NewInvoiceForm";
 import { PaymentDetailsDialog } from "./PaymentDetailsDialog";
 import { PaymentReminders } from "./PaymentReminders";
+import { generateInvoiceNumber } from "@/utils/invoiceNumberGenerator";
 
 interface InvoiceManagementProps {
   invoices?: Invoice[];
@@ -26,6 +29,7 @@ export function InvoiceManagement({
   onInvoicesChange,
   onPaymentStatusChange,
 }: InvoiceManagementProps) {
+  const { user } = useAuth();
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showNewInvoiceForm, setShowNewInvoiceForm] = useState(false);
   const [showEditInvoiceForm, setShowEditInvoiceForm] = useState(false);
@@ -118,11 +122,12 @@ export function InvoiceManagement({
     amount: number;
     notes?: string;
   }) => {
-    if (!invoiceBeingPaid) return;
+    if (!invoiceBeingPaid || !user) return;
 
     try {
       // Fetch clients to find the correct client ID
-      const clientsResponse = await fetch("/api/clients");
+      const headers = await getAuthHeaders(user);
+      const clientsResponse = await fetch("/api/clients", { headers });
       if (!clientsResponse.ok) {
         console.error("Failed to fetch clients");
         return;
@@ -155,6 +160,7 @@ export function InvoiceManagement({
       const response = await fetch(`/api/invoices/${invoiceBeingPaid.id}`, {
         method: "PUT",
         headers: {
+          ...headers,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(invoiceData),
@@ -172,9 +178,13 @@ export function InvoiceManagement({
   };
 
   const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!user) return;
+
     try {
+      const headers = await getAuthHeaders(user);
       const response = await fetch(`/api/invoices/${invoiceId}`, {
         method: "DELETE",
+        headers,
       });
 
       if (response.ok) {
@@ -196,6 +206,86 @@ export function InvoiceManagement({
       }
     } catch (error) {
       console.error("Error deleting invoice:", error);
+    }
+  };
+
+  const handleDuplicateInvoice = async (invoice: Invoice) => {
+    if (!user) return;
+    
+    try {
+      const headers = await getAuthHeaders(user);
+      
+      // Generate new invoice number in the regular format (INV-YYYY-NNNN)
+      const newInvoiceNumber = generateInvoiceNumber();
+      
+      // Create today's date for issued date
+      const today = new Date();
+      const issuedDate = today.toISOString().split('T')[0];
+      
+      // Calculate due date based on payment terms (default to 30 days if not specified)
+      const paymentTermsDays = invoice.paymentTerms?.days || 30;
+      const dueDate = new Date(today.getTime() + paymentTermsDays * 24 * 60 * 60 * 1000);
+      const dueDateString = dueDate.toISOString().split('T')[0];
+
+      // Get client ID - we need to fetch the client details since invoice only has client data, not ID
+      const clientsResponse = await fetch("/api/clients", { headers });
+      if (!clientsResponse.ok) {
+        throw new Error("Failed to fetch clients");
+      }
+      const clients = await clientsResponse.json();
+      const client = clients.find((c: { id: string; name: string }) => c.name === invoice.client.name);
+      
+      if (!client) {
+        throw new Error("Client not found");
+      }
+
+      // Create duplicate invoice data - reset payment-related fields
+      const duplicateData = {
+        number: newInvoiceNumber,
+        clientId: client.id,
+        status: "draft",
+        subtotal: invoice.subtotal,
+        tax: invoice.tax,
+        total: invoice.total,
+        issuedDate: issuedDate,
+        dueDate: dueDateString,
+        paymentTerms: invoice.paymentTerms,
+        notes: invoice.notes,
+        items: invoice.items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          amount: item.amount,
+        })),
+        courseInfo: invoice.courseInfo,
+        // Reset payment-related fields for the duplicate
+        paymentMethod: undefined,
+        transactionId: undefined,
+        paymentDate: undefined,
+      };
+
+      const response = await fetch("/api/invoices", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(duplicateData),
+      });
+
+      if (response.ok) {
+        const newInvoice = await response.json();
+        if (onInvoicesChange) {
+          const updatedInvoices = [newInvoice, ...invoices];
+          onInvoicesChange(updatedInvoices);
+          setSelectedInvoice(newInvoice);
+        }
+      } else {
+        throw new Error("Failed to create duplicate invoice");
+      }
+    } catch (error) {
+      console.error("Failed to duplicate invoice:", error);
+      // The error will be handled by the InvoiceDetail component for user feedback
     }
   };
 
@@ -308,6 +398,7 @@ export function InvoiceManagement({
                 filters={filters}
                 onEditInvoice={handleEditInvoice}
                 onDeleteInvoice={handleDeleteInvoice}
+                onDuplicateInvoice={handleDuplicateInvoice}
                 showInlineDetails={true}
               />
             </div>
@@ -318,6 +409,7 @@ export function InvoiceManagement({
                 onEditInvoice={handleEditInvoice}
                 onMarkPaid={handleMarkPaid}
                 onDeleteInvoice={handleDeleteInvoice}
+                onDuplicateInvoice={handleDuplicateInvoice}
               />
             </div>
           </TabsContent>

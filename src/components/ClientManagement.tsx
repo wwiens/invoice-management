@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Client } from "@/types/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthHeaders } from "@/lib/auth-utils";
 import {
   AlertTriangle,
   Building2,
@@ -24,6 +26,7 @@ interface ClientWithInvoiceCount extends Client {
 }
 
 export function ClientManagement() {
+  const { user } = useAuth();
   const [clients, setClients] = useState<ClientWithInvoiceCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +35,12 @@ export function ClientManagement() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   const fetchClients = async (search?: string) => {
+    if (!user) {
+      setError("Authentication required");
+      setLoading(false);
+      return;
+    }
+
     try {
       const params = new URLSearchParams();
       if (search) {
@@ -40,8 +49,13 @@ export function ClientManagement() {
         params.append("withCounts", "true");
       }
 
-      const response = await fetch(`/api/clients?${params}`);
+      const headers = await getAuthHeaders(user);
+      const response = await fetch(`/api/clients?${params}`, { headers });
+      
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Authentication required");
+        }
         throw new Error("Failed to fetch clients");
       }
       const data = await response.json();
@@ -55,8 +69,10 @@ export function ClientManagement() {
   };
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (user) {
+      fetchClients();
+    }
+  }, [user]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,13 +93,20 @@ export function ClientManagement() {
   };
 
   const handleDeleteClient = async (client: Client) => {
+    if (!user) {
+      alert("Authentication required");
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete ${client.name}?`)) {
       return;
     }
 
     try {
+      const headers = await getAuthHeaders(user);
       const response = await fetch(`/api/clients/${client.id}`, {
         method: "DELETE",
+        headers,
       });
 
       if (!response.ok) {

@@ -5,11 +5,17 @@ import {
   searchClients,
 } from "@/services/clientService";
 import type { CreateClientData } from "@/types/client";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserFromRequest } from "@/lib/auth-middleware";
 
 // GET /api/clients - Get all clients
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const withInvoiceCounts = searchParams.get("withCounts") === "true";
@@ -17,11 +23,11 @@ export async function GET(request: Request) {
     let clients;
 
     if (search) {
-      clients = await searchClients(search);
+      clients = await searchClients(search, userId);
     } else if (withInvoiceCounts) {
-      clients = await getClientsWithInvoiceCounts();
+      clients = await getClientsWithInvoiceCounts(userId);
     } else {
-      clients = await getAllClients();
+      clients = await getAllClients(userId);
     }
 
     return NextResponse.json(clients);
@@ -35,8 +41,13 @@ export async function GET(request: Request) {
 }
 
 // POST /api/clients - Create a new client
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const clientData: CreateClientData = await request.json();
 
     // Basic validation
@@ -47,7 +58,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const newClient = await createClient(clientData);
+    const newClient = await createClient(clientData, userId);
     return NextResponse.json(newClient, { status: 201 });
   } catch (error) {
     console.error("Failed to create client:", error);

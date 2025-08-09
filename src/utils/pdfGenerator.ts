@@ -324,6 +324,12 @@ export class InvoicePDFGenerator {
     leftY += 5;
     this.doc.text(`Account Name: ${bankInfo.accountName}`, leftColumnX + 5, leftY);
     leftY += 5;
+    
+    if (bankInfo.routingNumber) {
+      this.doc.text(`Routing Number: ${bankInfo.routingNumber}`, leftColumnX + 5, leftY);
+      leftY += 5;
+    }
+    
     this.doc.text(`Account Number: ${bankInfo.accountNumber}`, leftColumnX + 5, leftY);
     leftY += 5;
 

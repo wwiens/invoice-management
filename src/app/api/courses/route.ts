@@ -1,14 +1,20 @@
 import { query } from "@/lib/db";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserFromRequest } from "@/lib/auth-middleware";
 
 // GET /api/courses - Get all courses
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const courses = await query<{
       id: string;
       name: string;
       created_at: string;
-    }>("SELECT id, name, created_at FROM courses ORDER BY name ASC");
+    }>("SELECT id, name, created_at FROM courses WHERE user_id = $1 ORDER BY name ASC", [userId]);
 
     return NextResponse.json(courses);
   } catch (error) {
@@ -21,8 +27,13 @@ export async function GET() {
 }
 
 // POST /api/courses - Create a new course
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { name } = body;
 
@@ -35,10 +46,10 @@ export async function POST(request: Request) {
 
     const trimmedName = name.trim();
 
-    // Check if course already exists
+    // Check if course already exists for this user
     const existing = await query<{ id: string }>(
-      "SELECT id FROM courses WHERE LOWER(name) = LOWER($1)",
-      [trimmedName],
+      "SELECT id FROM courses WHERE LOWER(name) = LOWER($1) AND user_id = $2",
+      [trimmedName, userId],
     );
 
     if (existing.length > 0) {
@@ -47,8 +58,9 @@ export async function POST(request: Request) {
         id: string;
         name: string;
         created_at: string;
-      }>("SELECT id, name, created_at FROM courses WHERE id = $1", [
+      }>("SELECT id, name, created_at FROM courses WHERE id = $1 AND user_id = $2", [
         existing[0].id,
+        userId,
       ]);
       return NextResponse.json(course[0]);
     }
@@ -59,8 +71,8 @@ export async function POST(request: Request) {
       name: string;
       created_at: string;
     }>(
-      "INSERT INTO courses (name) VALUES ($1) RETURNING id, name, created_at",
-      [trimmedName],
+      "INSERT INTO courses (name, user_id) VALUES ($1, $2) RETURNING id, name, created_at",
+      [trimmedName, userId],
     );
 
     return NextResponse.json(newCourse[0], { status: 201 });

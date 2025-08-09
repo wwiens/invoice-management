@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import type { Course } from "@/types/invoice";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthHeaders } from "@/lib/auth-utils";
 
 interface CourseSelectProps {
   value: string;
@@ -32,20 +34,26 @@ export function CourseSelect({
   placeholder = "Select course...",
   className,
 }: CourseSelectProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchValue, setSearchValue] = useState("");
 
-  // Fetch courses on component mount
+  // Fetch courses when user is available
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    if (user) {
+      fetchCourses();
+    }
+  }, [user]);
 
   const fetchCourses = async () => {
+    if (!user) return;
+    
     try {
       setLoading(true);
-      const response = await fetch("/api/courses");
+      const headers = await getAuthHeaders(user);
+      const response = await fetch("/api/courses", { headers });
       if (response.ok) {
         const coursesData = await response.json();
         setCourses(coursesData);
@@ -58,12 +66,14 @@ export function CourseSelect({
   };
 
   const handleCreateCourse = async (courseName: string) => {
-    if (!courseName.trim()) return;
+    if (!courseName.trim() || !user) return;
 
     try {
+      const authHeaders = await getAuthHeaders(user);
       const response = await fetch("/api/courses", {
         method: "POST",
         headers: {
+          ...authHeaders,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name: courseName.trim() }),

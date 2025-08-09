@@ -3,7 +3,8 @@ import {
   getInvoiceById,
   updateInvoice,
 } from "@/services/invoiceService";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserFromRequest } from "@/lib/auth-middleware";
 
 interface RouteParams {
   params: {
@@ -12,8 +13,13 @@ interface RouteParams {
 }
 
 // GET /api/invoices/[id] - Get invoice by ID
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(params.id)) {
@@ -23,7 +29,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
-    const invoice = await getInvoiceById(params.id);
+    const invoice = await getInvoiceById(params.id, userId);
 
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
@@ -40,8 +46,13 @@ export async function GET(request: Request, { params }: RouteParams) {
 }
 
 // PUT /api/invoices/[id] - Update an invoice
-export async function PUT(request: Request, { params }: RouteParams) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(params.id)) {
@@ -66,7 +77,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       clientId: body.clientId,
     };
 
-    const invoice = await updateInvoice(params.id, invoiceData);
+    const invoice = await updateInvoice(params.id, invoiceData, userId);
     return NextResponse.json(invoice);
   } catch (error) {
     console.error("Failed to update invoice:", error);
@@ -78,8 +89,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
 }
 
 // DELETE /api/invoices/[id] - Delete an invoice
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const userId = await getUserFromRequest(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(params.id)) {
@@ -89,7 +105,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       );
     }
 
-    const deleted = await deleteInvoice(params.id);
+    const deleted = await deleteInvoice(params.id, userId);
 
     if (!deleted) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

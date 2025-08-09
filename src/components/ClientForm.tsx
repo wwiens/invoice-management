@@ -18,6 +18,8 @@ import {
   type CreateClientData,
   UpdateClientData,
 } from "@/types/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthHeaders } from "@/lib/auth-utils";
 import { useState, useEffect } from "react";
 
 interface ClientFormProps {
@@ -35,6 +37,7 @@ export function ClientForm({
   onClientSaved,
   title,
 }: ClientFormProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<CreateClientData>(() => ({
     name: client?.name || "",
     email: client?.email || "",
@@ -107,6 +110,12 @@ export function ClientForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      setError("Authentication required");
+      return;
+    }
+    
     setLoading(true);
     setError(null);
 
@@ -121,9 +130,11 @@ export function ClientForm({
       const url = client ? `/api/clients/${client.id}` : "/api/clients";
       const method = client ? "PUT" : "POST";
 
+      const authHeaders = await getAuthHeaders(user);
       const response = await fetch(url, {
         method,
         headers: {
+          ...authHeaders,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestData),

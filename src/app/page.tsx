@@ -5,12 +5,15 @@ import { Dashboard } from "@/components/Dashboard";
 import { InvoiceManagement } from "@/components/InvoiceManagement";
 import { Settings } from "@/components/Settings";
 import { Sidebar } from "@/components/Sidebar";
-import { SettingsProvider } from "@/contexts/SettingsContext";
+import LoginPage from "@/components/LoginPage";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Invoice } from "@/types/invoice";
 import { PaymentService } from "@/utils/paymentService";
+import { getAuthHeaders } from "@/lib/auth-utils";
 import { useEffect, useState } from "react";
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,10 +21,19 @@ export default function Home() {
 
   // Fetch invoices from database on component mount
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const fetchInvoices = async () => {
       try {
-        const response = await fetch("/api/invoices");
+        const headers = await getAuthHeaders(user);
+        const response = await fetch("/api/invoices", { headers });
         if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Authentication required");
+          }
           throw new Error("Failed to fetch invoices");
         }
         const data = await response.json();
@@ -42,12 +54,14 @@ export default function Home() {
     };
 
     fetchInvoices();
-  }, []);
+  }, [user]);
 
   const handlePaymentStatusChange = async (
     invoice: Invoice,
     isPaid: boolean,
   ) => {
+    if (!user) return;
+
     const updatedInvoice = isPaid
       ? PaymentService.markAsPaid(invoice)
       : PaymentService.markAsUnpaid(invoice);
@@ -63,9 +77,11 @@ export default function Home() {
 
     // Update database
     try {
+      const headers = await getAuthHeaders(user);
       const response = await fetch("/api/invoices", {
         method: "PATCH",
         headers: {
+          ...headers,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -130,51 +146,62 @@ export default function Home() {
     }
   };
 
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!user) {
+    return <LoginPage />;
+  }
+
   if (loading) {
     return (
-      <SettingsProvider>
-        <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading invoices from database...</p>
-            </div>
+      <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading invoices from database...</p>
           </div>
         </div>
-      </SettingsProvider>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <SettingsProvider>
-        <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              <p className="text-red-600 mb-4">Error: {error}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Retry
-              </button>
-            </div>
+      <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">Error: {error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Retry
+            </button>
           </div>
         </div>
-      </SettingsProvider>
+      </div>
     );
   }
 
   return (
-    <SettingsProvider>
-      <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        <div className="flex-1 overflow-hidden">
-          {renderContent()}
-        </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex-1 overflow-hidden">
+        {renderContent()}
       </div>
-    </SettingsProvider>
+    </div>
   );
 }

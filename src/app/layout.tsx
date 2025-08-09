@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 
 const inter = Inter({ subsets: ["latin"] });
 const poppins = Poppins({ 
@@ -28,8 +30,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} ${poppins.variable} ${roboto.variable}`}>
-        {children}
-        <Toaster position="top-right" richColors />
+        <AuthProvider>
+          <SettingsProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </SettingsProvider>
+        </AuthProvider>
       </body>
     </html>
   );
