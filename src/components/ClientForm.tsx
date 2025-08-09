@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ export function ClientForm({
     zipCode: client?.zipCode || "",
     taxId: client?.taxId || "",
     defaultUnitPrice: client?.defaultUnitPrice || undefined,
+    requiresCourseInfo: client?.requiresCourseInfo || false,
     billingAddress: client?.billingAddress
       ? {
           address: client.billingAddress.address,
@@ -73,6 +75,7 @@ export function ClientForm({
         zipCode: client.zipCode || "",
         taxId: client.taxId || "",
         defaultUnitPrice: client.defaultUnitPrice || undefined,
+        requiresCourseInfo: client.requiresCourseInfo || false,
         billingAddress: client.billingAddress
           ? {
               address: client.billingAddress.address,
@@ -95,6 +98,7 @@ export function ClientForm({
         zipCode: "",
         taxId: "",
         defaultUnitPrice: undefined,
+        requiresCourseInfo: false,
         billingAddress: undefined,
       });
       setUseSeparateBilling(false);
@@ -256,6 +260,25 @@ export function ClientForm({
                 This will be used as the default unit price when creating invoices for this client
               </p>
             </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="requiresCourseInfo"
+                checked={formData.requiresCourseInfo}
+                onCheckedChange={(checked) => 
+                  handleInputChange("requiresCourseInfo" as keyof CreateClientData, checked as boolean)
+                }
+              />
+              <Label 
+                htmlFor="requiresCourseInfo" 
+                className="text-sm font-normal cursor-pointer"
+              >
+                Require course information for invoices
+              </Label>
+            </div>
+            <p className="text-sm text-gray-500 ml-6">
+              When enabled, invoices for this client will include course details (course name, ID, cohort, training dates)
+            </p>
           </div>
 
           <Separator />

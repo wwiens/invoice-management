@@ -1,22 +1,28 @@
 import type { Invoice } from "@/types/invoice";
+import type { Settings } from "@/types/settings";
 import jsPDF from "jspdf";
 import { formatPaymentTerms } from "@/utils/paymentTerms";
-import { BUSINESS_PAYMENT_SETTINGS } from "@/config/paymentSettings";
+import { DEFAULT_SETTINGS } from "@/types/settings";
 
 export class InvoicePDFGenerator {
   private doc: jsPDF;
   private pageWidth: number;
   private pageHeight: number;
   private margin: number;
+  private settings: Settings;
 
-  constructor() {
+  constructor(settings?: Settings) {
     this.doc = new jsPDF();
     this.pageWidth = this.doc.internal.pageSize.getWidth();
     this.pageHeight = this.doc.internal.pageSize.getHeight();
     this.margin = 20;
+    this.settings = settings || DEFAULT_SETTINGS;
   }
 
-  generateInvoicePDF(invoice: Invoice): void {
+  generateInvoicePDF(invoice: Invoice, settings?: Settings): void {
+    if (settings) {
+      this.settings = settings;
+    }
     this.setupDocument();
     this.addHeader();
     this.addInvoiceInfo(invoice);
@@ -34,8 +40,8 @@ export class InvoicePDFGenerator {
     this.doc.setProperties({
       title: "Invoice",
       subject: "Invoice Document",
-      author: "Warren Wiens",
-      creator: "Warren Wiens Invoice Management System",
+      author: this.settings.company.name,
+      creator: `${this.settings.company.name} Invoice Management System`,
     });
   }
 
@@ -50,22 +56,33 @@ export class InvoicePDFGenerator {
     this.doc.setTextColor(0, 0, 0);
     this.doc.setFont("helvetica", "bold");
     this.doc.setFontSize(24);
-    this.doc.text("Warren Wiens", this.margin, this.margin + 10);
+    this.doc.text(this.settings.company.name, this.margin, this.margin + 10);
 
     // Company details
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(10);
     this.doc.setTextColor(100, 100, 100);
+    const addressLine = `${this.settings.company.address}, ${this.settings.company.city}, ${this.settings.company.state}, ${this.settings.company.zipCode}`;
     this.doc.text(
-      "2405 Bremerton Ct, Columbia, MO, 65203",
+      addressLine,
       this.margin,
       this.margin + 16,
     );
+    const contactLine = `${this.settings.company.email} | ${this.settings.company.phone}`;
     this.doc.text(
-      "wwiens@gmail.com | +1 (651) 724-4873",
+      contactLine,
       this.margin,
       this.margin + 21,
     );
+    
+    // Add website if available
+    if (this.settings.company.website) {
+      this.doc.text(
+        this.settings.company.website,
+        this.margin,
+        this.margin + 26,
+      );
+    }
   }
 
   private addInvoiceInfo(invoice: Invoice): void {
@@ -302,7 +319,7 @@ export class InvoicePDFGenerator {
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(8);
 
-    const bankInfo = BUSINESS_PAYMENT_SETTINGS.bankTransfer;
+    const bankInfo = this.settings.payment.bankTransfer;
     this.doc.text(`Bank Name: ${bankInfo.bankName}`, leftColumnX + 5, leftY);
     leftY += 5;
     this.doc.text(`Account Name: ${bankInfo.accountName}`, leftColumnX + 5, leftY);
@@ -332,7 +349,7 @@ export class InvoicePDFGenerator {
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(8);
 
-    const checkInfo = BUSINESS_PAYMENT_SETTINGS.check;
+    const checkInfo = this.settings.payment.check;
     this.doc.text(`Payee Name: ${checkInfo.payeeName}`, rightColumnX + 5, rightY);
     rightY += 5;
 
@@ -347,7 +364,7 @@ export class InvoicePDFGenerator {
   }
 
   private addFooter(invoice: Invoice): void {
-    const footerY = this.pageHeight - 60;
+    let footerY = this.pageHeight - 60;
 
     // Notes section
     if (invoice.notes) {
@@ -366,6 +383,28 @@ export class InvoicePDFGenerator {
         this.pageWidth - 2 * this.margin,
       );
       this.doc.text(splitNotes, this.margin, footerY + 8);
+      
+      // Adjust Y position for footer text if notes exist
+      const notesHeight = splitNotes.length * 5;
+      footerY = footerY + notesHeight + 15;
+    }
+
+    // Invoice footer text from settings
+    if (this.settings.invoiceDefaults.invoiceFooter) {
+      this.doc.setFont("helvetica", "normal");
+      this.doc.setFontSize(9);
+      this.doc.setTextColor(100, 100, 100);
+      
+      const footerLines = this.doc.splitTextToSize(
+        this.settings.invoiceDefaults.invoiceFooter,
+        this.pageWidth - 2 * this.margin,
+      );
+      
+      // Draw a separator line
+      this.doc.setDrawColor(200, 200, 200);
+      this.doc.line(this.margin, footerY - 5, this.pageWidth - this.margin, footerY - 5);
+      
+      this.doc.text(footerLines, this.margin, footerY);
     }
 
   }
@@ -404,7 +443,7 @@ export class InvoicePDFGenerator {
   }
 }
 
-export const generateInvoicePDF = (invoice: Invoice): void => {
-  const generator = new InvoicePDFGenerator();
-  generator.generateInvoicePDF(invoice);
+export const generateInvoicePDF = (invoice: Invoice, settings?: Settings): void => {
+  const generator = new InvoicePDFGenerator(settings);
+  generator.generateInvoicePDF(invoice, settings);
 };

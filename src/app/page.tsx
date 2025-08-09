@@ -3,7 +3,9 @@
 import { ClientManagement } from "@/components/ClientManagement";
 import { Dashboard } from "@/components/Dashboard";
 import { InvoiceManagement } from "@/components/InvoiceManagement";
+import { Settings } from "@/components/Settings";
 import { Sidebar } from "@/components/Sidebar";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import type { Invoice } from "@/types/invoice";
 import { PaymentService } from "@/utils/paymentService";
 import { useEffect, useState } from "react";
@@ -114,11 +116,7 @@ export default function Home() {
           </div>
         );
       case "settings":
-        return (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-gray-500">Settings content coming soon...</p>
-          </div>
-        );
+        return <Settings />;
       default:
         return (
           <Dashboard
@@ -131,43 +129,49 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading invoices from database...</p>
+      <SettingsProvider>
+        <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-500">Loading invoices from database...</p>
+            </div>
           </div>
         </div>
-      </div>
+      </SettingsProvider>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center">
-            <p className="text-red-600 mb-4">Error: {error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Retry
-            </button>
+      <SettingsProvider>
+        <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="text-center">
+              <p className="text-red-600 mb-4">Error: {error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </SettingsProvider>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <div className="flex-1 overflow-hidden">
-        {renderContent()}
+    <SettingsProvider>
+      <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="flex-1 overflow-hidden">
+          {renderContent()}
+        </div>
       </div>
-    </div>
+    </SettingsProvider>
   );
 }

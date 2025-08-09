@@ -18,6 +18,7 @@ interface DbClient {
   zip_code: string;
   tax_id?: string;
   default_unit_price?: number;
+  requires_course_info?: boolean;
   billing_address_street?: string;
   billing_address_city?: string;
   billing_address_state?: string;
@@ -39,6 +40,7 @@ function dbToClient(row: any): Client {
     zipCode: row.zip_code,
     taxId: row.tax_id,
     defaultUnitPrice: row.default_unit_price ? parseFloat(row.default_unit_price) : undefined,
+    requiresCourseInfo: row.requires_course_info || false,
     billingAddress: row.billing_address_street ? {
       address: row.billing_address_street,
       city: row.billing_address_city!,
@@ -76,9 +78,9 @@ export async function createClient(
 ): Promise<Client> {
   const insertQuery = `
     INSERT INTO clients (
-      name, email, phone, address, city, state, zip_code, tax_id, default_unit_price,
+      name, email, phone, address, city, state, zip_code, tax_id, default_unit_price, requires_course_info,
       billing_address_street, billing_address_city, billing_address_state, billing_address_zip
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     RETURNING *
   `;
 
@@ -92,6 +94,7 @@ export async function createClient(
     clientData.zipCode,
     clientData.taxId,
     clientData.defaultUnitPrice,
+    clientData.requiresCourseInfo || false,
     clientData.billingAddress?.address,
     clientData.billingAddress?.city,
     clientData.billingAddress?.state,
@@ -161,6 +164,12 @@ export async function updateClient(
   if (clientData.defaultUnitPrice !== undefined) {
     updateFields.push(`default_unit_price = $${paramCount}`);
     values.push(clientData.defaultUnitPrice);
+    paramCount++;
+  }
+
+  if (clientData.requiresCourseInfo !== undefined) {
+    updateFields.push(`requires_course_info = $${paramCount}`);
+    values.push(clientData.requiresCourseInfo);
     paramCount++;
   }
 

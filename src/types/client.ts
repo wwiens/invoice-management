@@ -9,6 +9,7 @@ export interface Client {
   zipCode: string;
   taxId?: string;
   defaultUnitPrice?: number;
+  requiresCourseInfo?: boolean;
   billingAddress?: {
     address: string;
     city: string;
@@ -29,6 +30,7 @@ export interface CreateClientData {
   zipCode: string;
   taxId?: string;
   defaultUnitPrice?: number;
+  requiresCourseInfo?: boolean;
   billingAddress?: {
     address: string;
     city: string;

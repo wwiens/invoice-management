@@ -35,6 +35,7 @@ import {
 } from "@/utils/paymentTerms";
 import { FileText, GraduationCap, Plus, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface NewInvoiceFormProps {
   open: boolean;
@@ -58,15 +59,16 @@ export function NewInvoiceForm({
   onOpenChange,
   onInvoiceCreated,
 }: NewInvoiceFormProps) {
+  const { settings } = useSettings();
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     clientId: "",
-    status: "draft",
+    status: settings.invoiceDefaults.defaultStatus as InvoiceStatus,
     issuedDate: new Date().toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
     dueDate: "",
-    paymentTerms: PAYMENT_TERMS_OPTIONS[2], // Default to Net 30
-    notes: "",
+    paymentTerms: settings.invoiceDefaults.paymentTerms,
+    notes: settings.invoiceDefaults.invoiceNotes || "",
     items: [{ description: "", quantity: 1, unitPrice: 0 }],
     courseInfo: {
       courseName: "",
@@ -88,13 +90,36 @@ export function NewInvoiceForm({
   // Auto-calculate due date when issued date or payment terms change
   useEffect(() => {
     if (formData.issuedDate && formData.paymentTerms) {
-      const calculatedDueDate = calculateDueDate(formData.issuedDate, formData.paymentTerms);
-      const dueDateString = calculatedDueDate.toISOString().split("T")[0];
-      if (dueDateString !== formData.dueDate) {
-        setFormData((prev) => ({ ...prev, dueDate: dueDateString }));
+      try {
+        const calculatedDueDate = calculateDueDate(formData.issuedDate, formData.paymentTerms);
+        if (calculatedDueDate && !isNaN(calculatedDueDate.getTime())) {
+          const dueDateString = calculatedDueDate.toISOString().split("T")[0];
+          if (dueDateString !== formData.dueDate) {
+            setFormData((prev) => ({ ...prev, dueDate: dueDateString }));
+          }
+        }
+      } catch (error) {
+        console.error("Error calculating due date:", error);
       }
     }
   }, [formData.issuedDate, formData.paymentTerms]);
+
+  // Update item prices when client changes (handles edge cases)
+  useEffect(() => {
+    if (formData.clientId && clients.length > 0) {
+      const selectedClient = clients.find((c) => c.id === formData.clientId);
+      const defaultPrice = selectedClient?.defaultUnitPrice || 0;
+      
+      // Only update items that still have 0 price (haven't been manually edited)
+      setFormData((prev) => ({
+        ...prev,
+        items: prev.items.map((item) => ({
+          ...item,
+          unitPrice: item.unitPrice === 0 ? defaultPrice : item.unitPrice
+        }))
+      }));
+    }
+  }, [formData.clientId, clients]);
 
   const fetchClients = async () => {
     setLoadingClients(true);
@@ -192,21 +217,24 @@ export function NewInvoiceForm({
       newErrors.dueDate = "Please select a due date";
     }
 
-    // Validate course info
-    if (!formData.courseInfo.courseName.trim()) {
-      newErrors.courseName = "Course name is required";
-    }
+    // Validate course info only if client requires it
+    const selectedClient = clients.find((c) => c.id === formData.clientId);
+    if (selectedClient?.requiresCourseInfo) {
+      if (!formData.courseInfo.courseName.trim()) {
+        newErrors.courseName = "Course name is required";
+      }
 
-    if (!formData.courseInfo.courseId.trim()) {
-      newErrors.courseId = "Course ID is required";
-    }
+      if (!formData.courseInfo.courseId.trim()) {
+        newErrors.courseId = "Course ID is required";
+      }
 
-    if (!formData.courseInfo.cohort.trim()) {
-      newErrors.cohort = "Cohort is required";
-    }
+      if (!formData.courseInfo.cohort.trim()) {
+        newErrors.cohort = "Cohort is required";
+      }
 
-    if (!formData.courseInfo.trainingDates.trim()) {
-      newErrors.trainingDates = "Training dates are required";
+      if (!formData.courseInfo.trainingDates.trim()) {
+        newErrors.trainingDates = "Training dates are required";
+      }
     }
 
     formData.items.forEach((item, index) => {
@@ -240,6 +268,7 @@ export function NewInvoiceForm({
       amount: calculateItemAmount(item.quantity, item.unitPrice),
     }));
 
+    const selectedClient = clients.find((c) => c.id === formData.clientId);
     const invoiceData = {
       number: generateInvoiceNumber(),
       clientId: formData.clientId,
@@ -252,7 +281,7 @@ export function NewInvoiceForm({
       paymentTerms: formData.paymentTerms,
       notes: formData.notes || undefined,
       items,
-      courseInfo: formData.courseInfo,
+      courseInfo: selectedClient?.requiresCourseInfo ? formData.courseInfo : undefined,
     };
 
     try {
@@ -279,11 +308,11 @@ export function NewInvoiceForm({
   const handleClose = () => {
     setFormData({
       clientId: "",
-      status: "draft",
+      status: settings.invoiceDefaults.defaultStatus as InvoiceStatus,
       issuedDate: new Date().toISOString().split("T")[0], // Reset to today's date
       dueDate: "",
-      paymentTerms: PAYMENT_TERMS_OPTIONS[2], // Default to Net 30
-      notes: "",
+      paymentTerms: settings.invoiceDefaults.paymentTerms,
+      notes: settings.invoiceDefaults.invoiceNotes || "",
       items: [{ description: "", quantity: 1, unitPrice: 0 }],
       courseInfo: {
         courseName: "",
@@ -330,10 +359,11 @@ export function NewInvoiceForm({
                     setFormData((prev) => ({
                       ...prev,
                       clientId: value,
-                      // Update existing items with the new default price if they're still at 0
+                      // Update ALL items to use the new client's default price
+                      // This ensures rate changes when switching clients
                       items: prev.items.map((item) => ({
                         ...item,
-                        unitPrice: item.unitPrice === 0 ? defaultPrice : item.unitPrice
+                        unitPrice: defaultPrice
                       }))
                     }));
                   }}
@@ -355,9 +385,9 @@ export function NewInvoiceForm({
                     ) : (
                       clients.map((client) => (
                         <SelectItem key={client.id} value={client.id}>
-                          <div>
-                            <div className="font-medium">{client.name}</div>
-                            <div className="text-sm text-gray-500">
+                          <div className="text-left">
+                            <div className="font-medium text-left">{client.name.trim()}</div>
+                            <div className="text-sm text-gray-500 text-left">
                               {client.email}
                             </div>
                           </div>
@@ -372,8 +402,8 @@ export function NewInvoiceForm({
               </div>
 
               {selectedClient && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="font-medium">{selectedClient.name}</div>
+                <div className="p-3 bg-gray-50 rounded-lg space-y-1">
+                  <div className="font-medium">{selectedClient.name.trim()}</div>
                   <div className="text-sm text-gray-600">
                     {selectedClient.address}
                   </div>
@@ -396,79 +426,81 @@ export function NewInvoiceForm({
             </CardContent>
           </Card>
 
-          {/* Course Information */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
-                <GraduationCap className="mr-2 h-4 w-4" />
-                COURSE INFORMATION
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="courseName">Course Name</Label>
-                  <CourseSelect
-                    value={formData.courseInfo.courseName}
-                    onValueChange={(value) => updateCourseInfo("courseName", value)}
-                    placeholder="Select or create course..."
-                    className={errors.courseName ? "border-red-500" : ""}
-                  />
-                  {errors.courseName && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {errors.courseName}
-                    </p>
-                  )}
+          {/* Course Information - Only show if client requires it */}
+          {selectedClient?.requiresCourseInfo && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600 flex items-center">
+                  <GraduationCap className="mr-2 h-4 w-4" />
+                  COURSE INFORMATION
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="courseName">Course Name</Label>
+                    <CourseSelect
+                      value={formData.courseInfo.courseName}
+                      onValueChange={(value) => updateCourseInfo("courseName", value)}
+                      placeholder="Select or create course..."
+                      className={errors.courseName ? "border-red-500" : ""}
+                    />
+                    {errors.courseName && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errors.courseName}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="courseId">Course ID</Label>
+                    <Input
+                      placeholder="e.g., RCT-101"
+                      value={formData.courseInfo.courseId}
+                      onChange={(e) =>
+                        updateCourseInfo("courseId", e.target.value)
+                      }
+                      className={errors.courseId ? "border-red-500" : ""}
+                    />
+                    {errors.courseId && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errors.courseId}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="courseId">Course ID</Label>
-                  <Input
-                    placeholder="e.g., RCT-101"
-                    value={formData.courseInfo.courseId}
-                    onChange={(e) =>
-                      updateCourseInfo("courseId", e.target.value)
-                    }
-                    className={errors.courseId ? "border-red-500" : ""}
-                  />
-                  {errors.courseId && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {errors.courseId}
-                    </p>
-                  )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="cohort">Cohort</Label>
+                    <Input
+                      placeholder="e.g., Fall 2025 Batch A"
+                      value={formData.courseInfo.cohort}
+                      onChange={(e) => updateCourseInfo("cohort", e.target.value)}
+                      className={errors.cohort ? "border-red-500" : ""}
+                    />
+                    {errors.cohort && (
+                      <p className="text-sm text-red-500 mt-1">{errors.cohort}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="trainingDates">Training Dates</Label>
+                    <Input
+                      placeholder="e.g., Jan 15-17, 22-24, 29-31, 2025"
+                      value={formData.courseInfo.trainingDates}
+                      onChange={(e) =>
+                        updateCourseInfo("trainingDates", e.target.value)
+                      }
+                      className={errors.trainingDates ? "border-red-500" : ""}
+                    />
+                    {errors.trainingDates && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {errors.trainingDates}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="cohort">Cohort</Label>
-                  <Input
-                    placeholder="e.g., Fall 2025 Batch A"
-                    value={formData.courseInfo.cohort}
-                    onChange={(e) => updateCourseInfo("cohort", e.target.value)}
-                    className={errors.cohort ? "border-red-500" : ""}
-                  />
-                  {errors.cohort && (
-                    <p className="text-sm text-red-500 mt-1">{errors.cohort}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="trainingDates">Training Dates</Label>
-                  <Input
-                    placeholder="e.g., Jan 15-17, 22-24, 29-31, 2025"
-                    value={formData.courseInfo.trainingDates}
-                    onChange={(e) =>
-                      updateCourseInfo("trainingDates", e.target.value)
-                    }
-                    className={errors.trainingDates ? "border-red-500" : ""}
-                  />
-                  {errors.trainingDates && (
-                    <p className="text-sm text-red-500 mt-1">
-                      {errors.trainingDates}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Invoice Details */}
           <div className="grid grid-cols-2 gap-4">

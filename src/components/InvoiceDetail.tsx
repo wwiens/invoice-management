@@ -30,6 +30,7 @@ import {
 import type { Invoice } from "@/types/invoice";
 import { generateInvoicePDF } from "@/utils/pdfGenerator";
 import { formatPaymentTerms } from "@/utils/paymentTerms";
+import { useSettings } from "@/contexts/SettingsContext";
 import {
   Calendar,
   Download,
@@ -55,6 +56,7 @@ export function InvoiceDetail({
   onMarkPaid,
   onDeleteInvoice,
 }: InvoiceDetailProps) {
+  const { settings } = useSettings();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   if (!invoice) {
@@ -74,7 +76,7 @@ export function InvoiceDetail({
 
   const handlePrint = () => {
     try {
-      generateInvoicePDF(invoice);
+      generateInvoicePDF(invoice, settings);
       toast.success(`PDF generated successfully!`, {
         description: `Invoice ${invoice.number} has been downloaded as PDF.`,
         duration: 3000,

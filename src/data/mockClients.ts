@@ -12,6 +12,7 @@ export const mockClients: Client[] = [
     zipCode: "10118",
     taxId: "6263727",
     defaultUnitPrice: 150.00,
+    requiresCourseInfo: true,
   },
   {
     id: "2",
@@ -23,6 +24,7 @@ export const mockClients: Client[] = [
     state: "CA",
     zipCode: "90210",
     defaultUnitPrice: 250.00,
+    requiresCourseInfo: false,
   },
   {
     id: "3",
@@ -34,6 +36,7 @@ export const mockClients: Client[] = [
     state: "IL",
     zipCode: "60601",
     defaultUnitPrice: 200.00,
+    requiresCourseInfo: true,
   },
   {
     id: "4",
@@ -45,6 +48,7 @@ export const mockClients: Client[] = [
     state: "FL",
     zipCode: "33101",
     defaultUnitPrice: 210.00,
+    requiresCourseInfo: false,
   },
   {
     id: "5",
@@ -56,6 +60,7 @@ export const mockClients: Client[] = [
     state: "TX",
     zipCode: "73301",
     defaultUnitPrice: 100.00,
+    requiresCourseInfo: true,
   },
   {
     id: "6",
@@ -67,6 +72,7 @@ export const mockClients: Client[] = [
     state: "WA",
     zipCode: "98101",
     defaultUnitPrice: 180.00,
+    requiresCourseInfo: false,
   },
   {
     id: "7",
@@ -78,6 +84,7 @@ export const mockClients: Client[] = [
     state: "CA",
     zipCode: "94105",
     defaultUnitPrice: 200.00,
+    requiresCourseInfo: true,
   },
 ];
 
