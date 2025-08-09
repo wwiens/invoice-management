@@ -270,8 +270,8 @@ export function InvoiceManagement({
 
       {/* Content with Tabs */}
       <div className="flex-1 flex">
-        <Tabs defaultValue="invoices" className="w-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 mt-4">
+        <Tabs defaultValue="invoices" className="w-full h-full flex flex-col">
+          <TabsList className="grid w-full grid-cols-2 mt-4 mb-4">
             <TabsTrigger value="invoices">Invoice List</TabsTrigger>
             <TabsTrigger value="reminders" className="flex items-center gap-2">
               Payment Reminders
@@ -283,7 +283,7 @@ export function InvoiceManagement({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="invoices" className="flex-1 flex mt-0">
+          <TabsContent value="invoices" className="flex-1 flex">
             <div className="w-1/2 border-r border-gray-200">
               <InvoiceList
                 invoices={invoices}
@@ -302,14 +302,12 @@ export function InvoiceManagement({
             />
           </TabsContent>
 
-          <TabsContent value="reminders" className="flex-1 flex flex-col mt-0">
-            <div className="p-6">
-              <PaymentReminders
-                invoices={invoices}
-                onPaymentStatusChange={handlePaymentStatusChangeLocal}
-                onMarkPaid={handleMarkPaid}
-              />
-            </div>
+          <TabsContent value="reminders" className="p-6">
+            <PaymentReminders
+              invoices={invoices}
+              onPaymentStatusChange={handlePaymentStatusChangeLocal}
+              onMarkPaid={handleMarkPaid}
+            />
           </TabsContent>
         </Tabs>
       </div>
