@@ -4,54 +4,96 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Common Commands
 
-- **Development**: `bun dev` or `npm run dev` - Start development server with Turbo
+- **Development**: `bun dev` or `npm run dev` - Start development server with Turbo on port 3000
 - **Build**: `bun run build` or `npm run build` - Build the application
 - **Lint & Type Check**: `bun run lint` or `npm run lint` - Run TypeScript compiler and Next.js linting
 - **Format**: `bun run format` - Format code using Biome
+- **Database Setup**: `cd database && ./setup.sh` - Initialize PostgreSQL database with schema and seed data
 
 ## Architecture Overview
 
-This is a Next.js 15 invoice management application built with TypeScript, React, and shadcn/ui components.
+This is a Next.js 15 invoice management application ("Instructor Lounge") built with TypeScript, React, PostgreSQL, and shadcn/ui components.
 
-### Core Structure
-- **Frontend**: Next.js App Router with TypeScript
-- **Styling**: Tailwind CSS with shadcn/ui component library
-- **State Management**: React hooks (useState, useMemo, useEffect)
-- **Data Flow**: Props drilling from main page component to child components
-- **Mock Data**: Static data in `/src/data/` for development
+### Tech Stack
+- **Frontend**: Next.js 15 App Router with TypeScript and React 18
+- **Database**: PostgreSQL with connection pooling via `pg` library
+- **Styling**: Tailwind CSS with shadcn/ui component library  
+- **Forms**: React Hook Form with Zod validation
+- **PDF Generation**: jsPDF for invoice exports
+- **State Management**: React Context (SettingsContext) + local component state
+- **Charts**: Recharts for dashboard analytics
 
-### Key Components
-- `src/app/page.tsx` - Main application container with tab routing
-- `src/components/InvoiceManagement.tsx` - Primary invoice interface with list/detail views
-- `src/components/Dashboard.tsx` - Analytics and overview dashboard
-- `src/types/invoice.ts` - Core TypeScript interfaces for Invoice, InvoiceStatus, etc.
-- `src/utils/paymentService.ts` - Business logic for invoice status updates
-- `src/utils/pdfGenerator.ts` - PDF export functionality using jsPDF
+### Database Architecture
+- **Connection**: PostgreSQL pool via `src/lib/db.ts` with environment-based config
+- **Tables**: clients, courses, invoices, invoice_items with UUID primary keys
+- **Setup**: Automated via `database/setup.sh` script with schema.sql and seed.sql
+- **Migrations**: Manual SQL files in database/ directory for schema updates
+- **API**: RESTful endpoints in `src/app/api/` for CRUD operations
 
-### Component Architecture
-- **Sidebar Navigation**: Tab-based routing handled in main page component
-- **Invoice List/Detail**: Split-pane interface for browsing and viewing invoices
-- **Payment Reminders**: Separate tab for overdue invoice management
-- **Form Handling**: React Hook Form with Zod validation
-- **UI Components**: Consistent use of shadcn/ui components throughout
+### Application Structure
+- **Main Container**: `src/app/page.tsx` - Root component with sidebar navigation and tab routing
+- **Core Modules**:
+  - `InvoiceManagement.tsx` - Primary invoice interface with list/detail split-pane layout
+  - `Dashboard.tsx` - Analytics dashboard with charts and KPIs
+  - `ClientManagement.tsx` - Client CRUD operations
+  - `Settings.tsx` - Company details, payment info, and invoice defaults
+- **Settings System**: Global SettingsContext with localStorage persistence, flows through PDF generation
+- **Business Logic**: `PaymentService` handles invoice status calculations and overdue detection
 
-### Data Model
-- Core entity is `Invoice` with nested `InvoiceItem[]` and client information
-- Invoice statuses: 'paid' | 'pending' | 'draft' | 'overdue'
-- Automatic status calculation based on due dates via `PaymentService`
+### Key Features
+- **Invoice Management**: Full CRUD with status tracking (draft/pending/paid/overdue)
+- **Client-Specific Settings**: Optional course information collection per client
+- **PDF Generation**: Styled invoice exports using company settings
+- **Payment Tracking**: Automated overdue detection and payment reminders
+- **Responsive Design**: Mobile-optimized with sidebar navigation
+- **Filter & Search**: Multi-criteria invoice filtering with status tabs
+
+### Data Flow
+1. **Settings**: SettingsContext → localStorage persistence → PDF generation integration
+2. **Invoices**: Database → API routes → React state → UI components
+3. **Status Updates**: PaymentService calculates overdue based on due dates
+4. **Client Integration**: Course requirements toggle affects invoice forms
 
 ## Development Notes
 
 ### Code Style
-- Uses Biome for formatting (double quotes, 2-space indentation)
-- ESLint with Next.js and TypeScript rules
-- Many accessibility rules disabled in both tools
-- Unused variables warnings disabled for development
+- **Formatter**: Biome with double quotes, 2-space indentation
+- **Linting**: ESLint with Next.js/TypeScript rules
+- **Accessibility**: Many a11y rules disabled for rapid development
+- **TypeScript**: Strict mode with unused variable warnings disabled
 
-### Package Manager
-- Primarily uses Bun (lockfile: bun.lock)
-- All commands work with npm/yarn/pnpm as fallbacks
+### Database Development
+- **Local Setup**: Requires PostgreSQL on port 5433 (customizable via .env.local)
+- **Environment Variables**: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+- **Schema Changes**: Create migration files in database/ directory
+- **Testing**: Use `src/utils/testDb.ts` for database connection testing
+
+### Component Patterns
+- **UI Components**: Exclusively use shadcn/ui components for consistency
+- **Form Handling**: React Hook Form + Zod validation throughout
+- **State Management**: Context for global state (Settings), local state for UI
+- **Error Handling**: Toast notifications via Sonner library
+- **Loading States**: Inline loading indicators and skeleton states
+
+### API Development
+- **Structure**: Next.js API routes in `src/app/api/`
+- **Database**: Use connection pool from `src/lib/db.ts`
+- **Error Handling**: Consistent HTTP status codes and error messages
+- **Validation**: Server-side validation for all endpoints
+
+### Package Management
+- **Primary**: Bun (lockfile: bun.lock)
+- **Fallback**: All commands work with npm/yarn/pnpm
 
 ### Deployment
-- Configured for Netlify deployment (netlify.toml present)
-- Next.js static export optimized build
+- **Target**: Netlify (netlify.toml configuration present)
+- **Build**: Next.js static export optimized build
+- **Database**: Configure production PostgreSQL connection via environment variables
+
+## Important Reminders
+
+- **Font Usage**: Application uses Roboto (Google Fonts) for "Instructor Lounge" branding with bold weight
+- **Status Logic**: "Overdue" is calculated, not stored - use `PaymentService.isOverdue()` for filtering
+- **Client Requirements**: `requiresCourseInfo` field controls course section visibility in invoice forms
+- **PDF Integration**: Company settings from SettingsContext automatically flow to PDF generation
+- **Database Migrations**: Always test migrations locally before applying to production

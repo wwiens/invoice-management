@@ -32,6 +32,7 @@ import {
   PAYMENT_TERMS_OPTIONS,
   calculateDueDate,
 } from "@/utils/paymentTerms";
+import { ApiService } from "@/utils/api";
 import { FileText, GraduationCap, Plus, Trash2, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -129,11 +130,8 @@ export function EditInvoiceForm({
   const fetchClients = async () => {
     setLoadingClients(true);
     try {
-      const response = await fetch("/api/clients");
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data);
-      }
+      const data = await ApiService.fetchClients();
+      setClients(data);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
     } finally {

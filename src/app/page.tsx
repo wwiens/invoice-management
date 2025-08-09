@@ -52,6 +52,9 @@ export default function Home() {
       ? PaymentService.markAsPaid(invoice)
       : PaymentService.markAsUnpaid(invoice);
 
+    // Store original invoices for potential rollback
+    const originalInvoices = invoices;
+    
     // Optimistic update
     const updatedInvoices = invoices.map((inv) =>
       inv.id === invoice.id ? updatedInvoice : inv,
@@ -82,7 +85,7 @@ export default function Home() {
     } catch (err) {
       console.error("Error updating invoice status:", err);
       // Revert optimistic update on error
-      setInvoices(invoices);
+      setInvoices(originalInvoices);
     }
   };
 

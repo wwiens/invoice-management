@@ -160,7 +160,7 @@ export function ClientForm({
     }
   };
 
-  const handleInputChange = (field: keyof CreateClientData, value: string | number | undefined) => {
+  const handleInputChange = (field: keyof CreateClientData, value: string | number | boolean | undefined) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,

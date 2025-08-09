@@ -32,6 +32,24 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // Validate status
+    const validStatuses = ['paid', 'pending', 'draft', 'overdue'];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json(
+        { error: "Invalid invoice status" },
+        { status: 400 },
+      );
+    }
+
+    // Validate UUID format for id
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return NextResponse.json(
+        { error: "Invalid invoice ID format" },
+        { status: 400 },
+      );
+    }
+
     const updatedInvoice = await updateInvoiceStatus(
       id,
       status as InvoiceStatus,
@@ -56,6 +74,21 @@ export async function PATCH(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // Input validation
+    if (!body.clientId || !body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      return NextResponse.json(
+        { error: "Client ID and at least one item are required" },
+        { status: 400 },
+      );
+    }
+
+    if (typeof body.subtotal !== 'number' || typeof body.tax !== 'number' || typeof body.total !== 'number') {
+      return NextResponse.json(
+        { error: "Invalid subtotal, tax, or total values" },
+        { status: 400 },
+      );
+    }
 
     const invoiceData = {
       ...body,

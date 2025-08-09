@@ -14,6 +14,15 @@ interface RouteParams {
 // GET /api/invoices/[id] - Get invoice by ID
 export async function GET(request: Request, { params }: RouteParams) {
   try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(params.id)) {
+      return NextResponse.json(
+        { error: "Invalid invoice ID format" },
+        { status: 400 },
+      );
+    }
+
     const invoice = await getInvoiceById(params.id);
 
     if (!invoice) {
@@ -33,7 +42,24 @@ export async function GET(request: Request, { params }: RouteParams) {
 // PUT /api/invoices/[id] - Update an invoice
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(params.id)) {
+      return NextResponse.json(
+        { error: "Invalid invoice ID format" },
+        { status: 400 },
+      );
+    }
+
     const body = await request.json();
+
+    // Basic validation for required fields
+    if (!body.clientId) {
+      return NextResponse.json(
+        { error: "Client ID is required" },
+        { status: 400 },
+      );
+    }
 
     const invoiceData = {
       ...body,
@@ -54,6 +80,15 @@ export async function PUT(request: Request, { params }: RouteParams) {
 // DELETE /api/invoices/[id] - Delete an invoice
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(params.id)) {
+      return NextResponse.json(
+        { error: "Invalid invoice ID format" },
+        { status: 400 },
+      );
+    }
+
     const deleted = await deleteInvoice(params.id);
 
     if (!deleted) {

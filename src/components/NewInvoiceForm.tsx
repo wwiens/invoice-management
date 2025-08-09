@@ -29,6 +29,7 @@ import type {
   PaymentTerms,
 } from "@/types/invoice";
 import { generateInvoiceNumber } from "@/utils/invoiceNumberGenerator";
+import { ApiService } from "@/utils/api";
 import {
   PAYMENT_TERMS_OPTIONS,
   calculateDueDate,
@@ -124,11 +125,8 @@ export function NewInvoiceForm({
   const fetchClients = async () => {
     setLoadingClients(true);
     try {
-      const response = await fetch("/api/clients");
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data);
-      }
+      const data = await ApiService.fetchClients();
+      setClients(data);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
     } finally {
