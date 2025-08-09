@@ -2,6 +2,7 @@
 
 import { ClientManagement } from "@/components/ClientManagement";
 import { Dashboard } from "@/components/Dashboard";
+import { FinancialReports } from "@/components/FinancialReports";
 import { InvoiceManagement } from "@/components/InvoiceManagement";
 import { Settings } from "@/components/Settings";
 import { Sidebar } from "@/components/Sidebar";
@@ -129,11 +130,7 @@ export default function Home() {
       case "clients":
         return <ClientManagement />;
       case "reports":
-        return (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-gray-500">Reports content coming soon...</p>
-          </div>
-        );
+        return <FinancialReports invoices={invoices} />;
       case "settings":
         return <Settings />;
       default:
