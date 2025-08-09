@@ -246,8 +246,8 @@ export function EditInvoiceForm({
       if (!item.description.trim()) {
         newErrors[`item-${index}-description`] = "Description is required";
       }
-      if (item.quantity <= 0) {
-        newErrors[`item-${index}-quantity`] = "Quantity must be greater than 0";
+      if (item.quantity < 0.01) {
+        newErrors[`item-${index}-quantity`] = "Quantity must be at least 0.01";
       }
       if (item.unitPrice < 0) {
         newErrors[`item-${index}-unitPrice`] = "Unit price cannot be negative";
@@ -630,13 +630,14 @@ export function EditInvoiceForm({
                   <div className="col-span-2">
                     <Input
                       type="number"
-                      min="1"
+                      min="0.01"
+                      step="0.01"
                       value={item.quantity}
                       onChange={(e) =>
                         updateItem(
                           index,
                           "quantity",
-                          Number.parseInt(e.target.value) || 1,
+                          Number.parseFloat(e.target.value) || 0,
                         )
                       }
                       className={

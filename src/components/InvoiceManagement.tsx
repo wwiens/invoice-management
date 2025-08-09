@@ -43,12 +43,8 @@ export function InvoiceManagement({
   // Use prop invoices if provided, otherwise empty array
   const invoices = useMemo(() => propInvoices || [], [propInvoices]);
 
-  // Set initial selected invoice when invoices change
-  useEffect(() => {
-    if (invoices.length > 0 && !selectedInvoice) {
-      setSelectedInvoice(invoices[0]);
-    }
-  }, [invoices, selectedInvoice]);
+  // Don't auto-select invoices - user must click to select
+
 
   const overdueCount = useMemo(
     () => PaymentService.getOverdueInvoices(invoices).length,
@@ -84,14 +80,16 @@ export function InvoiceManagement({
   ];
 
   const handleFilterChange = (newFilters: Partial<FilterOptions>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+    setFilters({ ...filters, ...newFilters });
+    // Clear any selection when filters change - user must click to select again
+    setSelectedInvoice(null);
   };
 
   const handleNewInvoice = (newInvoice: Invoice) => {
     if (onInvoicesChange) {
       const updatedInvoices = [newInvoice, ...invoices];
       onInvoicesChange(updatedInvoices);
-      setSelectedInvoice(newInvoice);
+      // Don't auto-select new invoice - user can click to select if needed
     }
   };
 
@@ -106,7 +104,9 @@ export function InvoiceManagement({
         inv.id === updatedInvoice.id ? updatedInvoice : inv,
       );
       onInvoicesChange(updatedInvoices);
-      setSelectedInvoice(updatedInvoice);
+      
+      // Clear selection when invoice is updated - user can reselect if needed
+      setSelectedInvoice(null);
     }
   };
 
@@ -194,11 +194,9 @@ export function InvoiceManagement({
           );
           onInvoicesChange(updatedInvoices);
 
-          // Update selected invoice
+          // Clear selection if deleted invoice was selected
           if (selectedInvoice?.id === invoiceId) {
-            setSelectedInvoice(
-              updatedInvoices.length > 0 ? updatedInvoices[0] : null,
-            );
+            setSelectedInvoice(null);
           }
         }
       } else {
@@ -296,12 +294,9 @@ export function InvoiceManagement({
     if (onPaymentStatusChange) {
       onPaymentStatusChange(invoice, isPaid);
 
-      // Update selected invoice if it's the one being modified
+      // Clear selection when payment status changes - user can reselect if needed
       if (selectedInvoice?.id === invoice.id) {
-        const updatedInvoice = isPaid
-          ? PaymentService.markAsPaid(invoice)
-          : PaymentService.markAsUnpaid(invoice);
-        setSelectedInvoice(updatedInvoice);
+        setSelectedInvoice(null);
       }
     }
   };
