@@ -94,6 +94,16 @@ export class PaymentService {
     });
   }
 
+  static isOverdue(invoice: Invoice): boolean {
+    if (invoice.status === "paid" || invoice.status === "draft") {
+      return false;
+    }
+
+    const dueDate = new Date(invoice.dueDate);
+    const today = new Date();
+    return today > dueDate;
+  }
+
   static updateInvoiceStatus(invoice: Invoice): Invoice {
     if (invoice.status === "paid" || invoice.status === "draft") {
       return invoice;

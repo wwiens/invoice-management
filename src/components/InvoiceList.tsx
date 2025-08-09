@@ -33,8 +33,11 @@ export function InvoiceList({
   showInlineDetails = false,
 }: InvoiceListProps) {
   const filteredInvoices = invoices.filter((invoice) => {
-    const matchesStatus =
-      filters.status === "all" || invoice.status === filters.status;
+    const matchesStatus = 
+      filters.status === "all" || 
+      (filters.status === "overdue" 
+        ? PaymentService.isOverdue(invoice) 
+        : invoice.status === filters.status);
     const matchesSearch =
       !filters.search ||
       invoice.number.toLowerCase().includes(filters.search.toLowerCase()) ||

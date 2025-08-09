@@ -46,9 +46,14 @@ export function InvoiceManagement({
     }
   }, [invoices, selectedInvoice]);
 
+  const overdueCount = useMemo(
+    () => PaymentService.getOverdueInvoices(invoices).length,
+    [invoices],
+  );
+
   const statusTabs: Array<{
     label: string;
-    value: InvoiceStatus | "all";
+    value: InvoiceStatus | "all" | "overdue";
     count?: number;
   }> = [
     { label: "All Invoices", value: "all", count: invoices.length },
@@ -67,12 +72,12 @@ export function InvoiceManagement({
       value: "paid",
       count: invoices.filter((i) => i.status === "paid").length,
     },
+    {
+      label: "Overdue",
+      value: "overdue",
+      count: overdueCount,
+    },
   ];
-
-  const overdueCount = useMemo(
-    () => PaymentService.getOverdueInvoices(invoices).length,
-    [invoices],
-  );
 
   const handleFilterChange = (newFilters: Partial<FilterOptions>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -275,7 +280,7 @@ export function InvoiceManagement({
       {/* Content with Tabs */}
       <div className="flex-1 flex">
         <Tabs defaultValue="invoices" className="w-full h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 mx-4 md:mx-6 mt-4 mb-4">
+          <TabsList className="grid w-full grid-cols-2 mt-4 mb-4">
             <TabsTrigger value="invoices" className="text-sm">
               <span className="hidden sm:inline">Invoice List</span>
               <span className="sm:hidden">Invoices</span>

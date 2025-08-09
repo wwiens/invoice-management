@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({ subsets: ["latin"] });
+const poppins = Poppins({ 
+  weight: ['400', '500', '600', '700', '800', '900'],
+  subsets: ['latin'],
+  variable: '--font-poppins'
+});
+const roboto = Roboto({
+  weight: ['300', '400', '500', '700'],
+  subsets: ['latin'],
+  variable: '--font-roboto'
+});
 
 export const metadata: Metadata = {
-  title: "Profitsor - Invoice Management",
-  description: "Professional invoice management system",
+  title: "Instructor Lounge - Invoice Management",
+  description: "Professional invoice management system for instructors",
 };
 
 export default function RootLayout({
@@ -17,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} ${poppins.variable} ${roboto.variable}`}>
         {children}
         <Toaster position="top-right" richColors />
       </body>

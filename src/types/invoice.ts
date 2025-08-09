@@ -59,6 +59,6 @@ export interface Invoice {
 }
 
 export interface FilterOptions {
-  status: InvoiceStatus | "all";
+  status: InvoiceStatus | "all" | "overdue";
   search: string;
 }

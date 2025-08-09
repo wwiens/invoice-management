@@ -10,6 +10,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 
 interface SidebarProps {
@@ -59,10 +60,15 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       <div className="lg:hidden bg-white border-b border-gray-200 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-              <span className="text-white font-bold text-sm">PR</span>
-            </div>
-            <span className="font-semibold text-lg">Profitsor</span>
+            <Image 
+              src="/logo.png" 
+              alt="Instructor Lounge Logo" 
+              width={32} 
+              height={32} 
+              className="mr-3 rounded-lg"
+              priority
+            />
+            <span className="instructor-lounge-brand">Instructor Lounge</span>
           </div>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -89,11 +95,19 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       )}>
         <div className="p-6">
           {/* Logo - Desktop only */}
-          <div className="hidden lg:flex items-center mb-8">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-              <span className="text-white font-bold text-sm">PR</span>
+          <div className="hidden lg:flex flex-col items-center mb-8">
+            <Image 
+              src="/logo.png" 
+              alt="Instructor Lounge Logo" 
+              width={60} 
+              height={60} 
+              className="mb-3 rounded-lg shadow-sm"
+              priority
+            />
+            <div className="flex flex-col items-center text-center">
+              <span className="instructor-lounge-brand leading-tight">Instructor</span>
+              <span className="instructor-lounge-brand leading-tight">Lounge</span>
             </div>
-            <span className="font-semibold text-lg">Profitsor</span>
           </div>
 
           {/* Navigation */}

@@ -67,3 +67,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+@layer components {
+  .instructor-lounge-brand {
+    font-family: var(--font-roboto), sans-serif;
+    font-weight: 700;
+    color: #1f2937;
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+}
