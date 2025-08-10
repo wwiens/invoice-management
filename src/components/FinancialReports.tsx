@@ -36,6 +36,7 @@ import {
   Download,
   Calendar,
   FileText,
+  Printer,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -61,11 +62,25 @@ interface OutstandingInvoice {
   number: string;
   client: string;
   amount: number;
+  dueDate: Date;
   daysOverdue: number;
   status: string;
 }
 
+interface CourseReportRow {
+  courseName: string;
+  cohort: string;
+  courseId: string;
+  trainingDates: string;
+  amount: number;
+  invoiced: boolean;
+  paid: boolean;
+  invoiceNumber: string;
+  notes: string;
+}
+
 export function FinancialReports({ invoices }: FinancialReportsProps) {
+  const [reportType, setReportType] = useState("financial");
   const [reportPeriod, setReportPeriod] = useState("12months");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -209,13 +224,15 @@ export function FinancialReports({ invoices }: FinancialReportsProps) {
       .filter(inv => inv.status === "pending" || PaymentService.isOverdue(inv))
       .forEach(invoice => {
         const dueDate = new Date(invoice.dueDate);
-        const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+        // Calculate days overdue - negative means days until due
+        const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
         
         outstanding.push({
           id: invoice.id,
           number: invoice.number,
           client: invoice.client.name,
           amount: invoice.total,
+          dueDate,
           daysOverdue,
           status: daysOverdue > 0 ? "overdue" : "pending",
         });
@@ -235,36 +252,156 @@ export function FinancialReports({ invoices }: FinancialReportsProps) {
       .reduce((sum, inv) => sum + inv.total, 0);
   }, [invoices]);
 
+  // Course Report Data
+  const courseReportData = useMemo(() => {
+    const courseData: CourseReportRow[] = [];
+    
+    invoices.forEach(invoice => {
+      // Check if invoice has course information
+      if (invoice.courseInfo) {
+        courseData.push({
+          courseName: invoice.courseInfo.courseName || "N/A",
+          cohort: invoice.courseInfo.cohort || "None",
+          courseId: invoice.courseInfo.courseId || "None",
+          trainingDates: invoice.courseInfo.trainingDates || "N/A",
+          amount: invoice.total,
+          invoiced: true,
+          paid: invoice.status === "paid",
+          invoiceNumber: invoice.number,
+          notes: invoice.notes || ""
+        });
+      }
+    });
+    
+    return courseData.sort((a, b) => a.courseName.localeCompare(b.courseName));
+  }, [invoices]);
+
   const pieColors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
   const exportReport = () => {
-    // Simple CSV export implementation
-    const csvData = [
-      ["Financial Report", ""],
-      ["Generated", new Date().toLocaleDateString()],
-      ["Period", reportPeriod === "custom" ? `${startDate} to ${endDate}` : reportPeriod],
-      [""],
-      ["Revenue Summary", ""],
-      ["Total Revenue", revenueSummary.totalRevenue],
-      ["Pending Revenue", revenueSummary.pendingRevenue],
-      ["Overdue Revenue", revenueSummary.overdueRevenue],
-      ["Collection Rate", `${revenueSummary.collectionRate.toFixed(1)}%`],
-      [""],
-      ["Outstanding Invoices", ""],
-      ["Invoice Number", "Client", "Amount", "Days Overdue"],
-      ...outstandingInvoices.map(inv => [inv.number, inv.client, inv.amount, inv.daysOverdue]),
-    ];
+    if (reportType === "course") {
+      // Export course report as CSV
+      const csvData = [
+        ["Course Report", ""],
+        ["Generated", new Date().toLocaleDateString()],
+        [""],
+        ["Course Name", "Cohort", "Course ID", "Training Dates", "Amount", "Invoiced", "Paid", "Invoice Number", "Notes"],
+        ...courseReportData.map(course => [
+          course.courseName,
+          course.cohort,
+          course.courseId,
+          course.trainingDates,
+          course.amount,
+          course.invoiced ? "Y" : "N",
+          course.paid ? "Y" : "N",
+          course.invoiceNumber,
+          course.notes
+        ]),
+      ];
+      
+      const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `course-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } else {
+      // Simple CSV export implementation for financial report
+      const csvData = [
+        ["Financial Report", ""],
+        ["Generated", new Date().toLocaleDateString()],
+        ["Period", reportPeriod === "custom" ? `${startDate} to ${endDate}` : reportPeriod],
+        [""],
+        ["Revenue Summary", ""],
+        ["Total Revenue", revenueSummary.totalRevenue],
+        ["Pending Revenue", revenueSummary.pendingRevenue],
+        ["Overdue Revenue", revenueSummary.overdueRevenue],
+        ["Collection Rate", `${revenueSummary.collectionRate.toFixed(1)}%`],
+        [""],
+        ["Outstanding Invoices", ""],
+        ["Invoice Number", "Client", "Amount", "Days Overdue"],
+        ...outstandingInvoices.map(inv => [inv.number, inv.client, inv.amount, inv.daysOverdue]),
+      ];
 
-    const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `financial-report-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+      const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `financial-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
+  };
+
+  const printCourseReport = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const printContent = `
+      <html>
+        <head>
+          <title>Course Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #333; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .amount { text-align: right; }
+            .center { text-align: center; }
+            @media print {
+              body { margin: 0; }
+              table { font-size: 12px; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Course Report</h1>
+          <p>Generated: ${new Date().toLocaleDateString()}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Course Name</th>
+                <th>Cohort</th>
+                <th>Course ID</th>
+                <th>Training Dates</th>
+                <th class="amount">Amount</th>
+                <th class="center">Invoiced</th>
+                <th class="center">Paid</th>
+                <th>Invoice #</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${courseReportData.map(course => `
+                <tr>
+                  <td>${course.courseName}</td>
+                  <td>${course.cohort}</td>
+                  <td>${course.courseId}</td>
+                  <td>${course.trainingDates}</td>
+                  <td class="amount">${formatCurrency(course.amount)}</td>
+                  <td class="center">${course.invoiced ? 'Y' : 'N'}</td>
+                  <td class="center">${course.paid ? 'Y' : 'N'}</td>
+                  <td>${course.invoiceNumber}</td>
+                  <td>${course.notes}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   return (
@@ -272,22 +409,46 @@ export function FinancialReports({ invoices }: FinancialReportsProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Financial Reports</h1>
-          <p className="text-gray-600">Comprehensive financial analysis and insights</p>
+          <h1 className="text-2xl font-semibold">
+            {reportType === "financial" ? "Financial Reports" : "Course Reports"}
+          </h1>
+          <p className="text-gray-600">
+            {reportType === "financial" 
+              ? "Comprehensive financial analysis and insights"
+              : "Course enrollment and training status overview"
+            }
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={reportPeriod} onValueChange={setReportPeriod}>
+          <Select value={reportType} onValueChange={setReportType}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1month">Last Month</SelectItem>
-              <SelectItem value="3months">Last 3 Months</SelectItem>
-              <SelectItem value="6months">Last 6 Months</SelectItem>
-              <SelectItem value="12months">Last 12 Months</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
+              <SelectItem value="financial">Financial Report</SelectItem>
+              <SelectItem value="course">Course Report</SelectItem>
             </SelectContent>
           </Select>
+          {reportType === "financial" && (
+            <Select value={reportPeriod} onValueChange={setReportPeriod}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1month">Last Month</SelectItem>
+                <SelectItem value="3months">Last 3 Months</SelectItem>
+                <SelectItem value="6months">Last 6 Months</SelectItem>
+                <SelectItem value="12months">Last 12 Months</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {reportType === "course" && (
+            <Button onClick={printCourseReport} variant="outline" size="sm">
+              <Printer className="mr-2 h-4 w-4" />
+              Print Report
+            </Button>
+          )}
           <Button onClick={exportReport} variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
             Export CSV
@@ -296,7 +457,7 @@ export function FinancialReports({ invoices }: FinancialReportsProps) {
       </div>
 
       {/* Custom Date Range */}
-      {reportPeriod === "custom" && (
+      {reportType === "financial" && reportPeriod === "custom" && (
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-4">
@@ -323,8 +484,85 @@ export function FinancialReports({ invoices }: FinancialReportsProps) {
         </Card>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Course Report */}
+      {reportType === "course" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <FileText className="mr-2 h-5 w-5" />
+              Course Training Report
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {courseReportData.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Course Data</h3>
+                <p className="text-gray-500">No invoices with course information found.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left p-3 font-semibold">Course Name</th>
+                        <th className="text-left p-3 font-semibold">Cohort</th>
+                        <th className="text-left p-3 font-semibold">Course ID</th>
+                        <th className="text-left p-3 font-semibold">Training Dates</th>
+                        <th className="text-right p-3 font-semibold">Amount</th>
+                        <th className="text-center p-3 font-semibold">Invoiced</th>
+                        <th className="text-center p-3 font-semibold">Paid</th>
+                        <th className="text-left p-3 font-semibold">Invoice #</th>
+                        <th className="text-left p-3 font-semibold">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courseReportData.map((course, index) => (
+                        <tr key={`${course.invoiceNumber}-${index}`} className="border-b hover:bg-gray-50">
+                          <td className="p-3">{course.courseName}</td>
+                          <td className="p-3 text-gray-600">{course.cohort}</td>
+                          <td className="p-3 text-gray-600">{course.courseId}</td>
+                          <td className="p-3">{course.trainingDates}</td>
+                          <td className="p-3 text-right font-mono">{formatCurrency(course.amount)}</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              course.invoiced ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {course.invoiced ? 'Y' : 'N'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              course.paid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                            }`}>
+                              {course.paid ? 'Y' : 'N'}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-sm">{course.invoiceNumber}</td>
+                          <td className="p-3 text-gray-600 text-sm">{course.notes || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="border-t pt-4 text-sm text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Total Courses: {courseReportData.length}</span>
+                    <span>Total Amount: {formatCurrency(courseReportData.reduce((sum, course) => sum + course.amount, 0))}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Financial Reports */}
+      {reportType === "financial" && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -464,20 +702,32 @@ export function FinancialReports({ invoices }: FinancialReportsProps) {
               <p className="text-gray-500 text-center py-8">No outstanding invoices</p>
             ) : (
               <>
-                <div className="hidden sm:grid grid-cols-5 gap-4 text-sm font-medium text-gray-500 border-b pb-2">
+                <div className="hidden sm:grid grid-cols-6 gap-4 text-sm font-medium text-gray-500 border-b pb-2">
                   <div>Invoice</div>
                   <div>Client</div>
                   <div>Amount</div>
+                  <div>Due Date</div>
                   <div>Days Overdue</div>
                   <div>Status</div>
                 </div>
                 {outstandingInvoices.slice(0, 10).map((invoice) => (
-                  <div key={invoice.id} className="grid grid-cols-1 sm:grid-cols-5 gap-4 p-3 border rounded-lg hover:bg-gray-50">
+                  <div key={invoice.id} className="grid grid-cols-1 sm:grid-cols-6 gap-4 p-3 border rounded-lg hover:bg-gray-50">
                     <div className="font-medium">{invoice.number}</div>
                     <div className="text-gray-600">{invoice.client}</div>
                     <div className="font-semibold">{formatCurrency(invoice.amount)}</div>
-                    <div className={invoice.daysOverdue > 0 ? "text-red-600 font-medium" : "text-gray-600"}>
-                      {invoice.daysOverdue > 0 ? `${invoice.daysOverdue} days` : "Not due"}
+                    <div className="text-gray-600">
+                      {invoice.dueDate.toLocaleDateString("en-US", { 
+                        month: "short", 
+                        day: "numeric", 
+                        year: "numeric" 
+                      })}
+                    </div>
+                    <div className={invoice.daysOverdue > 0 ? "text-red-600 font-medium" : invoice.daysOverdue < 0 ? "text-green-600" : "text-gray-600"}>
+                      {invoice.daysOverdue > 0 
+                        ? `${invoice.daysOverdue} days overdue` 
+                        : invoice.daysOverdue < 0 
+                        ? `${Math.abs(invoice.daysOverdue)} days until due`
+                        : "Due today"}
                     </div>
                     <div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -516,6 +766,8 @@ export function FinancialReports({ invoices }: FinancialReportsProps) {
           </p>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }

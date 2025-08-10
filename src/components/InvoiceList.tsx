@@ -107,7 +107,7 @@ export function InvoiceList({
 
   const getRowBackgroundColor = (invoice: Invoice) => {
     if (selectedInvoice?.id === invoice.id) {
-      return "bg-blue-50 border-blue-200";
+      return "bg-blue-100 border-blue-300";
     }
 
     const urgency = PaymentService.getUrgencyLevel(invoice);
