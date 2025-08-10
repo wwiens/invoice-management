@@ -1,0 +1,135 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2025-08-10T14:15:00.000Z",
+  "settings": {},
+  "clients": [
+    {
+      "id": "9c9fe274-c82b-4f6c-a3dd-c119ebc7e3e1",
+      "name": "Simplilearn",
+      "address": "201 Spear St #1100",
+      "city": "San Francisco",
+      "state": "CA",
+      "zip_code": "94105",
+      "tax_id": "",
+      "created_at": "2025-08-08T17:11:52.406144+00:00",
+      "updated_at": "2025-08-08T17:11:52.406144+00:00",
+      "email": "syed.mussavir@simplilearn.net",
+      "phone": "",
+      "billing_address": null,
+      "billing_city": null,
+      "billing_state": null,
+      "billing_zip_code": null,
+      "default_unit_price": "60.00",
+      "billing_address_street": null,
+      "billing_address_city": null,
+      "billing_address_state": null,
+      "billing_address_zip": null,
+      "requires_course_info": true,
+      "user_id": "your-user-id"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "2537231e-e853-4873-a8e3-3ddd08ec94d1",
+      "number": "INV-2025-0808264",
+      "client_id": "9c9fe274-c82b-4f6c-a3dd-c119ebc7e3e1",
+      "status": "pending",
+      "subtotal": "256.00",
+      "tax": "0.00",
+      "total": "256.00",
+      "issued_date": "2025-07-16",
+      "due_date": "2025-08-27",
+      "notes": null,
+      "payment_method": null,
+      "transaction_id": null,
+      "payment_date": null,
+      "course_name": "Gen BT",
+      "course_id": "rrr4",
+      "cohort": "Aug",
+      "training_dates": "90-22",
+      "created_at": "2025-08-08T18:53:29.694223+00:00",
+      "updated_at": "2025-08-08T19:16:29.204287+00:00",
+      "payment_terms_days": null,
+      "payment_terms_description": null,
+      "user_id": "your-user-id",
+      "items": [
+        {
+          "id": "3916824c-594d-4e57-acad-51ca758b48a4",
+          "invoiceId": "2537231e-e853-4873-a8e3-3ddd08ec94d1",
+          "description": "Testingnnn",
+          "quantity": 4,
+          "price": 64.00,
+          "amount": 256.00
+        }
+      ]
+    },
+    {
+      "id": "15842dcf-bf33-430f-b167-71e5a88c948f",
+      "number": "INV-2025-0808917",
+      "client_id": "9c9fe274-c82b-4f6c-a3dd-c119ebc7e3e1",
+      "status": "paid",
+      "subtotal": "300.00",
+      "tax": "0.00",
+      "total": "300.00",
+      "issued_date": "2025-08-07",
+      "due_date": "2025-07-09",
+      "notes": null,
+      "payment_method": "Bank Transfer",
+      "transaction_id": "TRX-80327317",
+      "payment_date": "2025-08-08",
+      "course_name": "Geb BT",
+      "course_id": "5",
+      "cohort": "June",
+      "training_dates": "8-15",
+      "created_at": "2025-08-08T18:51:15.258798+00:00",
+      "updated_at": "2025-08-08T19:12:07.352442+00:00",
+      "payment_terms_days": null,
+      "payment_terms_description": null,
+      "user_id": "your-user-id",
+      "items": [
+        {
+          "id": "a6827095-41ab-4121-8303-bb75c623bc54",
+          "invoiceId": "15842dcf-bf33-430f-b167-71e5a88c948f",
+          "description": "Test",
+          "quantity": 5,
+          "price": 60.00,
+          "amount": 300.00
+        }
+      ]
+    },
+    {
+      "id": "9ebcd181-e6bf-4378-a297-7781a47a5d25",
+      "number": "INV-2025-0808383",
+      "client_id": "9c9fe274-c82b-4f6c-a3dd-c119ebc7e3e1",
+      "status": "paid",
+      "subtotal": "240.00",
+      "tax": "0.00",
+      "total": "240.00",
+      "issued_date": "2025-08-07",
+      "due_date": "2025-07-02",
+      "notes": null,
+      "payment_method": "Manual",
+      "transaction_id": null,
+      "payment_date": "2025-08-08",
+      "course_name": "BT Gen AI",
+      "course_id": "Onboarding",
+      "cohort": "June 2025",
+      "training_dates": "May 31, 2025",
+      "created_at": "2025-08-08T17:24:44.745663+00:00",
+      "updated_at": "2025-08-08T19:05:42.322371+00:00",
+      "payment_terms_days": null,
+      "payment_terms_description": null,
+      "user_id": "your-user-id",
+      "items": [
+        {
+          "id": "4d032731-862f-4016-83fa-f21fe55afc6a",
+          "invoiceId": "9ebcd181-e6bf-4378-a297-7781a47a5d25",
+          "description": "Onboarding session",
+          "quantity": 4,
+          "price": 60.00,
+          "amount": 240.00
+        }
+      ]
+    }
+  ]
+}

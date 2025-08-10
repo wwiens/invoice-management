@@ -40,6 +40,9 @@ export async function GET() {
 
     // Settings will be handled on the client side from localStorage
     const backupData = {
+      version: "1.0.0",
+      timestamp: new Date().toISOString(),
+      settings: {}, // Will be filled in by client-side code with localStorage data
       clients: clientsResult.rows,
       invoices: invoices
     };

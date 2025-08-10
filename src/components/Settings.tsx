@@ -10,26 +10,58 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { Settings as SettingsType } from "@/types/settings";
+import { DEFAULT_SETTINGS } from "@/types/settings";
 import { BackupService } from "@/utils/backup";
 import { PAYMENT_TERMS_OPTIONS } from "@/utils/paymentTerms";
-import { Building2, CreditCard, Database, Download, FileText, RotateCcw, Save, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Building2, CreditCard, Database, Download, FileText, RotateCcw, Save } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export function Settings() {
   const { settings, updateSettings, resetSettings, isLoading } = useSettings();
-  const [formData, setFormData] = useState<SettingsType>(settings);
+  console.log("Settings component - isLoading:", isLoading, "settings:", settings, "settings type:", typeof settings, "settings.company:", settings?.company);
+  const [formData, setFormData] = useState<SettingsType>(DEFAULT_SETTINGS);
   const [hasChanges, setHasChanges] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setFormData(settings);
+    console.log("Settings useEffect - settings changed:", settings, "settings.company:", settings?.company);
+    const newFormData = settings || DEFAULT_SETTINGS;
+    
+    // Ensure the formData always has the required structure
+    const safeFormData = {
+      ...DEFAULT_SETTINGS,
+      ...newFormData,
+      company: {
+        ...DEFAULT_SETTINGS.company,
+        ...(newFormData?.company || {}),
+      },
+      payment: {
+        ...DEFAULT_SETTINGS.payment,
+        ...(newFormData?.payment || {}),
+        bankTransfer: {
+          ...DEFAULT_SETTINGS.payment.bankTransfer,
+          ...(newFormData?.payment?.bankTransfer || {}),
+        },
+        check: {
+          ...DEFAULT_SETTINGS.payment.check,
+          ...(newFormData?.payment?.check || {}),
+        },
+      },
+      invoiceDefaults: {
+        ...DEFAULT_SETTINGS.invoiceDefaults,
+        ...(newFormData?.invoiceDefaults || {}),
+      },
+    };
+    
+    console.log("Settings useEffect - safeFormData:", safeFormData);
+    setFormData(safeFormData);
   }, [settings]);
 
   useEffect(() => {
-    setHasChanges(JSON.stringify(formData) !== JSON.stringify(settings));
+    if (formData && formData.company) {
+      setHasChanges(JSON.stringify(formData) !== JSON.stringify(settings));
+    }
   }, [formData, settings]);
 
   const handleSave = () => {
@@ -48,6 +80,7 @@ export function Settings() {
   };
 
   const handleCompanyChange = (field: keyof typeof formData.company, value: string) => {
+    if (!formData.company) return;
     setFormData(prev => ({
       ...prev,
       company: {
@@ -58,6 +91,7 @@ export function Settings() {
   };
 
   const handleBankTransferChange = (field: keyof typeof formData.payment.bankTransfer, value: string) => {
+    if (!formData.payment?.bankTransfer) return;
     setFormData(prev => ({
       ...prev,
       payment: {
@@ -71,6 +105,7 @@ export function Settings() {
   };
 
   const handleCheckChange = (field: keyof typeof formData.payment.check, value: string) => {
+    if (!formData.payment?.check) return;
     setFormData(prev => ({
       ...prev,
       payment: {
@@ -84,6 +119,7 @@ export function Settings() {
   };
 
   const handleInvoiceDefaultsChange = (field: keyof typeof formData.invoiceDefaults, value: any) => {
+    if (!formData.invoiceDefaults) return;
     setFormData(prev => ({
       ...prev,
       invoiceDefaults: {
@@ -122,54 +158,6 @@ export function Settings() {
     }
   };
 
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsImporting(true);
-    try {
-      // Read and parse file
-      const fileContent = await BackupService.readFile(file);
-      const data = JSON.parse(fileContent);
-      
-      // Validate backup data
-      const validatedData = await BackupService.validateBackup(data);
-      
-      // Import settings to localStorage
-      if (validatedData.settings) {
-        updateSettings(validatedData.settings as SettingsType);
-      }
-      
-      // Import clients and invoices to database
-      const response = await fetch("/api/backup/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validatedData),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to import data");
-      }
-      
-      const result = await response.json();
-      toast.success(
-        `Import successful: ${result.stats.clients} clients, ${result.stats.invoices} invoices`
-      );
-      
-      // Reload the page to refresh all data
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (error) {
-      console.error("Import error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to import data");
-    } finally {
-      setIsImporting(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
 
   if (isLoading) {
     return (
@@ -181,6 +169,39 @@ export function Settings() {
       </div>
     );
   }
+
+  // Ensure formData has proper structure before rendering
+  console.log("Pre-render check - formData:", formData, "formData?.company:", formData?.company, "typeof formData:", typeof formData);
+  if (!formData?.company) {
+    console.log("STUCK: formData missing company:", formData, "isLoading:", isLoading, "settings:", settings);
+    console.log("STUCK: DEFAULT_SETTINGS:", DEFAULT_SETTINGS, "DEFAULT_SETTINGS.company:", DEFAULT_SETTINGS.company);
+    
+    // Force set formData to DEFAULT_SETTINGS if it's malformed
+    if (formData !== DEFAULT_SETTINGS) {
+      console.log("FORCE FIXING: Setting formData to DEFAULT_SETTINGS");
+      setFormData(DEFAULT_SETTINGS);
+      return (
+        <div className="flex-1 p-6 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Fixing settings...</p>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex-1 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Initializing settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // formData should always be initialized with DEFAULT_SETTINGS as fallback
+  const safeFormData = formData;
 
   return (
     <div className="flex-1 p-6">
@@ -230,7 +251,7 @@ export function Settings() {
             </TabsTrigger>
             <TabsTrigger value="backup" className="gap-2">
               <Database className="h-4 w-4" />
-              Backup & Restore
+              Export Data
             </TabsTrigger>
           </TabsList>
 
@@ -248,7 +269,7 @@ export function Settings() {
                     <Label htmlFor="company-name">Company Name</Label>
                     <Input
                       id="company-name"
-                      value={formData.company.name}
+                      value={safeFormData.company.name}
                       onChange={(e) => handleCompanyChange("name", e.target.value)}
                       placeholder="Your Company Name"
                     />
@@ -257,7 +278,7 @@ export function Settings() {
                     <Label htmlFor="tax-id">Tax ID (Optional)</Label>
                     <Input
                       id="tax-id"
-                      value={formData.company.taxId || ""}
+                      value={safeFormData.company.taxId || ""}
                       onChange={(e) => handleCompanyChange("taxId", e.target.value)}
                       placeholder="EIN or Tax Number"
                     />
@@ -272,7 +293,7 @@ export function Settings() {
                     <Label htmlFor="address">Street Address</Label>
                     <Input
                       id="address"
-                      value={formData.company.address}
+                      value={safeFormData.company.address}
                       onChange={(e) => handleCompanyChange("address", e.target.value)}
                       placeholder="123 Main Street"
                     />
@@ -282,7 +303,7 @@ export function Settings() {
                       <Label htmlFor="city">City</Label>
                       <Input
                         id="city"
-                        value={formData.company.city}
+                        value={safeFormData.company.city}
                         onChange={(e) => handleCompanyChange("city", e.target.value)}
                         placeholder="City"
                       />
@@ -291,7 +312,7 @@ export function Settings() {
                       <Label htmlFor="state">State</Label>
                       <Input
                         id="state"
-                        value={formData.company.state}
+                        value={safeFormData.company.state}
                         onChange={(e) => handleCompanyChange("state", e.target.value)}
                         placeholder="State"
                       />
@@ -300,7 +321,7 @@ export function Settings() {
                       <Label htmlFor="zipCode">ZIP Code</Label>
                       <Input
                         id="zipCode"
-                        value={formData.company.zipCode}
+                        value={safeFormData.company.zipCode}
                         onChange={(e) => handleCompanyChange("zipCode", e.target.value)}
                         placeholder="12345"
                       />
@@ -312,7 +333,7 @@ export function Settings() {
                       <Input
                         id="email"
                         type="email"
-                        value={formData.company.email}
+                        value={safeFormData.company.email}
                         onChange={(e) => handleCompanyChange("email", e.target.value)}
                         placeholder="company@example.com"
                       />
@@ -321,7 +342,7 @@ export function Settings() {
                       <Label htmlFor="phone">Phone</Label>
                       <Input
                         id="phone"
-                        value={formData.company.phone}
+                        value={safeFormData.company.phone}
                         onChange={(e) => handleCompanyChange("phone", e.target.value)}
                         placeholder="+1 (555) 123-4567"
                       />
@@ -331,7 +352,7 @@ export function Settings() {
                     <Label htmlFor="website">Website (Optional)</Label>
                     <Input
                       id="website"
-                      value={formData.company.website || ""}
+                      value={safeFormData.company.website || ""}
                       onChange={(e) => handleCompanyChange("website", e.target.value)}
                       placeholder="https://example.com"
                     />
@@ -357,7 +378,7 @@ export function Settings() {
                       <Label htmlFor="bank-name">Bank Name</Label>
                       <Input
                         id="bank-name"
-                        value={formData.payment.bankTransfer.bankName}
+                        value={safeFormData.payment.bankTransfer.bankName}
                         onChange={(e) => handleBankTransferChange("bankName", e.target.value)}
                         placeholder="First National Bank"
                       />
@@ -366,7 +387,7 @@ export function Settings() {
                       <Label htmlFor="account-name">Account Name</Label>
                       <Input
                         id="account-name"
-                        value={formData.payment.bankTransfer.accountName}
+                        value={safeFormData.payment.bankTransfer.accountName}
                         onChange={(e) => handleBankTransferChange("accountName", e.target.value)}
                         placeholder="Your Company LLC"
                       />
@@ -377,7 +398,7 @@ export function Settings() {
                       <Label htmlFor="account-number">Account Number</Label>
                       <Input
                         id="account-number"
-                        value={formData.payment.bankTransfer.accountNumber}
+                        value={safeFormData.payment.bankTransfer.accountNumber}
                         onChange={(e) => handleBankTransferChange("accountNumber", e.target.value)}
                         placeholder="1234567890"
                       />
@@ -386,7 +407,7 @@ export function Settings() {
                       <Label htmlFor="routing-number">Routing Number (Optional)</Label>
                       <Input
                         id="routing-number"
-                        value={formData.payment.bankTransfer.routingNumber || ""}
+                        value={safeFormData.payment.bankTransfer.routingNumber || ""}
                         onChange={(e) => handleBankTransferChange("routingNumber", e.target.value)}
                         placeholder="123456789"
                       />
@@ -397,7 +418,7 @@ export function Settings() {
                       <Label htmlFor="iban">IBAN (Optional)</Label>
                       <Input
                         id="iban"
-                        value={formData.payment.bankTransfer.iban || ""}
+                        value={safeFormData.payment.bankTransfer.iban || ""}
                         onChange={(e) => handleBankTransferChange("iban", e.target.value)}
                         placeholder="US33XXXX1234567890"
                       />
@@ -406,7 +427,7 @@ export function Settings() {
                       <Label htmlFor="swift">SWIFT/BIC Code (Optional)</Label>
                       <Input
                         id="swift"
-                        value={formData.payment.bankTransfer.swiftBic || ""}
+                        value={safeFormData.payment.bankTransfer.swiftBic || ""}
                         onChange={(e) => handleBankTransferChange("swiftBic", e.target.value)}
                         placeholder="XXXXUS33"
                       />
@@ -415,7 +436,7 @@ export function Settings() {
                   <div>
                     <Label htmlFor="currency">Currency</Label>
                     <Select
-                      value={formData.payment.bankTransfer.currency}
+                      value={safeFormData.payment.bankTransfer.currency}
                       onValueChange={(value) => handleBankTransferChange("currency", value)}
                     >
                       <SelectTrigger id="currency">
@@ -440,7 +461,7 @@ export function Settings() {
                     <Label htmlFor="payee-name">Payee Name</Label>
                     <Input
                       id="payee-name"
-                      value={formData.payment.check.payeeName}
+                      value={safeFormData.payment.check.payeeName}
                       onChange={(e) => handleCheckChange("payeeName", e.target.value)}
                       placeholder="Your Name or Company"
                     />
@@ -449,7 +470,7 @@ export function Settings() {
                     <Label htmlFor="mailing-address">Mailing Address</Label>
                     <Textarea
                       id="mailing-address"
-                      value={formData.payment.check.mailingAddress}
+                      value={safeFormData.payment.check.mailingAddress}
                       onChange={(e) => handleCheckChange("mailingAddress", e.target.value)}
                       placeholder="123 Main Street, City, State ZIP"
                       rows={3}
@@ -463,7 +484,7 @@ export function Settings() {
                   <Label htmlFor="payment-instructions">Additional Payment Instructions (Optional)</Label>
                   <Textarea
                     id="payment-instructions"
-                    value={formData.payment.paymentInstructions || ""}
+                    value={safeFormData.payment.paymentInstructions || ""}
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
                       payment: {
@@ -492,7 +513,7 @@ export function Settings() {
                   <div>
                     <Label htmlFor="payment-terms">Default Payment Terms</Label>
                     <Select
-                      value={`${formData.invoiceDefaults.paymentTerms.days}`}
+                      value={`${safeFormData.invoiceDefaults.paymentTerms.days}`}
                       onValueChange={(value) => {
                         const term = PAYMENT_TERMS_OPTIONS.find(t => t.days === parseInt(value));
                         if (term) {
@@ -515,7 +536,7 @@ export function Settings() {
                   <div>
                     <Label htmlFor="default-status">Default Invoice Status</Label>
                     <Select
-                      value={formData.invoiceDefaults.defaultStatus}
+                      value={safeFormData.invoiceDefaults.defaultStatus}
                       onValueChange={(value) => handleInvoiceDefaultsChange("defaultStatus", value)}
                     >
                       <SelectTrigger id="default-status">
@@ -537,7 +558,7 @@ export function Settings() {
                       min="0"
                       max="100"
                       step="0.01"
-                      value={formData.invoiceDefaults.taxRate}
+                      value={safeFormData.invoiceDefaults.taxRate}
                       onChange={(e) => handleInvoiceDefaultsChange("taxRate", parseFloat(e.target.value) || 0)}
                       placeholder="0"
                     />
@@ -545,7 +566,7 @@ export function Settings() {
                   <div>
                     <Label htmlFor="invoice-currency">Invoice Currency</Label>
                     <Select
-                      value={formData.invoiceDefaults.currency}
+                      value={safeFormData.invoiceDefaults.currency}
                       onValueChange={(value) => handleInvoiceDefaultsChange("currency", value)}
                     >
                       <SelectTrigger id="invoice-currency">
@@ -565,7 +586,7 @@ export function Settings() {
                   <Label htmlFor="invoice-notes">Default Invoice Notes (Optional)</Label>
                   <Textarea
                     id="invoice-notes"
-                    value={formData.invoiceDefaults.invoiceNotes || ""}
+                    value={safeFormData.invoiceDefaults.invoiceNotes || ""}
                     onChange={(e) => handleInvoiceDefaultsChange("invoiceNotes", e.target.value)}
                     placeholder="Thank you for your business!"
                     rows={3}
@@ -575,7 +596,7 @@ export function Settings() {
                   <Label htmlFor="invoice-footer">Invoice Footer Text (Optional)</Label>
                   <Textarea
                     id="invoice-footer"
-                    value={formData.invoiceDefaults.invoiceFooter || ""}
+                    value={safeFormData.invoiceDefaults.invoiceFooter || ""}
                     onChange={(e) => handleInvoiceDefaultsChange("invoiceFooter", e.target.value)}
                     placeholder="Terms and conditions, legal text, etc."
                     rows={3}
@@ -588,87 +609,39 @@ export function Settings() {
           <TabsContent value="backup">
             <Card>
               <CardHeader>
-                <CardTitle>Backup & Restore</CardTitle>
+                <CardTitle>Export Data</CardTitle>
                 <CardDescription>
-                  Export your data for backup or import from a previous backup
+                  Download all your settings, clients, and invoices as a JSON file
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-medium mb-2">Export Data</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Download all your settings, clients, and invoices as a JSON file.
-                      This backup can be used to restore your data or migrate to another system.
-                    </p>
-                    <Button
-                      onClick={handleExport}
-                      disabled={isExporting}
-                      className="gap-2"
-                    >
-                      {isExporting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                          Exporting...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4" />
-                          Export All Data
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="text-lg font-medium mb-2">Import Data</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Restore from a backup file. This will replace all existing data
-                      including settings, clients, and invoices.
-                    </p>
-                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg mb-4">
-                      <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                        ⚠️ Warning: Import will replace all existing data
-                      </p>
-                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                        Make sure to export your current data first if you want to keep it.
-                      </p>
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".json"
-                      onChange={handleImport}
-                      className="hidden"
-                      disabled={isImporting}
-                    />
-                    <Button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isImporting}
-                      variant="outline"
-                      className="gap-2"
-                    >
-                      {isImporting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600" />
-                          Importing...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4" />
-                          Import from File
-                        </>
-                      )}
-                    </Button>
-                  </div>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Export all your data for backup purposes or to migrate to another system.
+                  </p>
+                  <Button
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="gap-2"
+                  >
+                    {isExporting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        Export All Data
+                      </>
+                    )}
+                  </Button>
                 </div>
 
                 <Separator />
 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium">Backup Contents</h3>
+                  <h3 className="text-sm font-medium">Export Contents</h3>
                   <ul className="text-sm text-muted-foreground space-y-1">
                     <li>• All company settings and preferences</li>
                     <li>• Client information and contact details</li>

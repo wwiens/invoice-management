@@ -67,11 +67,11 @@ export function NewInvoiceForm({
   const [loadingClients, setLoadingClients] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     clientId: "",
-    status: settings.invoiceDefaults.defaultStatus as InvoiceStatus,
+    status: (settings?.invoiceDefaults?.defaultStatus as InvoiceStatus) || "draft",
     issuedDate: new Date().toISOString().split("T")[0], // Today's date in YYYY-MM-DD format
     dueDate: "",
-    paymentTerms: settings.invoiceDefaults.paymentTerms,
-    notes: settings.invoiceDefaults.invoiceNotes || "",
+    paymentTerms: settings?.invoiceDefaults?.paymentTerms || { days: 30, description: "Net 30" },
+    notes: settings?.invoiceDefaults?.invoiceNotes || "",
     items: [{ description: "", quantity: 1, unitPrice: 0 }],
     courseInfo: {
       courseName: "",
@@ -330,11 +330,11 @@ export function NewInvoiceForm({
   const handleClose = () => {
     setFormData({
       clientId: "",
-      status: settings.invoiceDefaults.defaultStatus as InvoiceStatus,
+      status: (settings?.invoiceDefaults?.defaultStatus as InvoiceStatus) || "draft",
       issuedDate: new Date().toISOString().split("T")[0], // Reset to today's date
       dueDate: "",
-      paymentTerms: settings.invoiceDefaults.paymentTerms,
-      notes: settings.invoiceDefaults.invoiceNotes || "",
+      paymentTerms: settings?.invoiceDefaults?.paymentTerms || { days: 30, description: "Net 30" },
+      notes: settings?.invoiceDefaults?.invoiceNotes || "",
       items: [{ description: "", quantity: 1, unitPrice: 0 }],
       courseInfo: {
         courseName: "",

@@ -60,10 +60,14 @@ export class BackupService {
       }
     }
 
-    // Validate each invoice has required fields
+    // Validate each invoice has required fields (check multiple field name formats)
     for (const invoice of data.invoices) {
-      if (!invoice.id || !invoice.clientId || !invoice.invoiceNumber) {
-        throw new Error("Invalid invoice data: missing required fields");
+      const hasClientId = invoice.client_id || invoice.clientId || invoice.client;
+      const hasInvoiceNumber = invoice.invoice_number || invoice.invoiceNumber || invoice.number;
+      
+      if (!invoice.id || !hasClientId || !hasInvoiceNumber) {
+        console.error("Invalid invoice:", invoice);
+        throw new Error(`Invalid invoice data: missing required fields (id: ${!!invoice.id}, client: ${!!hasClientId}, number: ${!!hasInvoiceNumber})`);
       }
     }
 
