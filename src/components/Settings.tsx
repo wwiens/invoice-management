@@ -10,15 +10,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSettings } from "@/contexts/SettingsContext";
 import type { Settings as SettingsType } from "@/types/settings";
+import { BackupService } from "@/utils/backup";
 import { PAYMENT_TERMS_OPTIONS } from "@/utils/paymentTerms";
-import { Building2, CreditCard, FileText, RotateCcw, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Building2, CreditCard, Database, Download, FileText, RotateCcw, Save, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export function Settings() {
   const { settings, updateSettings, resetSettings, isLoading } = useSettings();
   const [formData, setFormData] = useState<SettingsType>(settings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(settings);
@@ -89,6 +93,84 @@ export function Settings() {
     }));
   };
 
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      // Fetch data from API
+      const response = await fetch("/api/backup/export");
+      if (!response.ok) throw new Error("Failed to export data");
+      
+      const data = await response.json();
+      
+      // Include settings from localStorage
+      const backupJson = await BackupService.exportData(
+        settings,
+        data.clients,
+        data.invoices
+      );
+      
+      // Download as file
+      const timestamp = new Date().toISOString().split("T")[0];
+      BackupService.downloadAsFile(backupJson, `invoice-backup-${timestamp}.json`);
+      
+      toast.success("Data exported successfully");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      // Read and parse file
+      const fileContent = await BackupService.readFile(file);
+      const data = JSON.parse(fileContent);
+      
+      // Validate backup data
+      const validatedData = await BackupService.validateBackup(data);
+      
+      // Import settings to localStorage
+      if (validatedData.settings) {
+        updateSettings(validatedData.settings as SettingsType);
+      }
+      
+      // Import clients and invoices to database
+      const response = await fetch("/api/backup/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validatedData),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to import data");
+      }
+      
+      const result = await response.json();
+      toast.success(
+        `Import successful: ${result.stats.clients} clients, ${result.stats.invoices} invoices`
+      );
+      
+      // Reload the page to refresh all data
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      console.error("Import error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to import data");
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 p-6 flex items-center justify-center">
@@ -145,6 +227,10 @@ export function Settings() {
             <TabsTrigger value="invoice" className="gap-2">
               <FileText className="h-4 w-4" />
               Invoice Defaults
+            </TabsTrigger>
+            <TabsTrigger value="backup" className="gap-2">
+              <Database className="h-4 w-4" />
+              Backup & Restore
             </TabsTrigger>
           </TabsList>
 
@@ -494,6 +580,101 @@ export function Settings() {
                     placeholder="Terms and conditions, legal text, etc."
                     rows={3}
                   />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="backup">
+            <Card>
+              <CardHeader>
+                <CardTitle>Backup & Restore</CardTitle>
+                <CardDescription>
+                  Export your data for backup or import from a previous backup
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Export Data</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Download all your settings, clients, and invoices as a JSON file.
+                      This backup can be used to restore your data or migrate to another system.
+                    </p>
+                    <Button
+                      onClick={handleExport}
+                      disabled={isExporting}
+                      className="gap-2"
+                    >
+                      {isExporting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                          Exporting...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4" />
+                          Export All Data
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="text-lg font-medium mb-2">Import Data</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Restore from a backup file. This will replace all existing data
+                      including settings, clients, and invoices.
+                    </p>
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg mb-4">
+                      <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                        ⚠️ Warning: Import will replace all existing data
+                      </p>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                        Make sure to export your current data first if you want to keep it.
+                      </p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".json"
+                      onChange={handleImport}
+                      className="hidden"
+                      disabled={isImporting}
+                    />
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isImporting}
+                      variant="outline"
+                      className="gap-2"
+                    >
+                      {isImporting ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4" />
+                          Import from File
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Backup Contents</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• All company settings and preferences</li>
+                    <li>• Client information and contact details</li>
+                    <li>• Invoices with all line items</li>
+                    <li>• Payment information and invoice statuses</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>
